@@ -1,0 +1,3 @@
+[submodule "mock-api"]
+	path = mock-api
+	url = ../f1-live-timing-mock-api.git
