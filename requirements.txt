@@ -1,0 +1,7 @@
+requests
+asyncio
+websockets
+discordwebhook
+python-dotenv
+redis
+redis-om

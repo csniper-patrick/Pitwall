@@ -1,0 +1,24 @@
+volumes:
+  redis-data:
+    external: false
+
+x-python-container: &python-container
+  image: docker.io/library/python:3.12
+  volumes:
+    - ./:/opt/pitwall/
+  depends_on:
+    redis:
+      condition: service_started
+  command: sleep infinity
+
+services:
+  redis:
+    image: docker.io/redis/redis-stack:latest
+    ports:
+      - 6379:6379
+      - 8001:8001
+    volumes:
+      - redis-data:/data
+  
+  race_control_msg_publisher:
+    <<: *python-container
