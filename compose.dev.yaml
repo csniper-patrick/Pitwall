@@ -10,8 +10,42 @@ x-python-container: &python-container
     redis:
       condition: service_started
   command: sleep infinity
+  environment:
+    - REDIS_HOST=redis
+    - VERBOSE=${VERBOSE:-False}
+    - USE_SSL=${USE_SSL:-False}
+    - API_HOST=${API_HOST:-proxy}
+    - RETRY=${RETRY:-False}
+    - VER_TAG=${CI_JOB_ID:-local}
+    - RACE_DIRECTOR=${RACE_DIRECTOR:-Race Director}
 
 services:
+
+  proxy:
+    image: docker.io/library/nginx:alpine
+    volumes:
+      - ./mock-api/nginx-template/:/etc/nginx/templates/:ro
+    depends_on:
+      signalr:
+        condition: service_started
+
+  signalr:
+    image: docker.io/library/python:3.12
+    volumes:
+      - ./mock-api/:/opt/
+    environment:
+      - SESSION_PATH=2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-03_Race/
+      - MESSAGE_GAP=${MESSAGE_GAP:-0.01}
+    command:
+      - /bin/sh
+      - -c
+      - >
+        cd /opt &&
+        python -m pip install -r requirements.txt && 
+        gunicorn -b 0.0.0.0:8000 --workers 1 --threads 64 --log-level debug --reload signalr:app
+    healthcheck:
+      test: curl --fail http://localhost:8000/ping
+
   redis:
     image: docker.io/redis/redis-stack:latest
     ports:
@@ -22,3 +56,11 @@ services:
   
   race_control_msg_publisher:
     <<: *python-container
+    command:
+      - /bin/sh
+      - -c 
+      - >
+        cd /opt/pitwall &&
+        python -m pip install -r requirements.txt &&
+        sleep 10 &&
+        python publisher/race-control.py

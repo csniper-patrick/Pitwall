@@ -1,7 +1,6 @@
 requests
 asyncio
-websockets
+websockets==13
 discordwebhook
 python-dotenv
 redis
-redis-om
