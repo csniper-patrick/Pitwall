@@ -67,13 +67,13 @@ def negotiate():
 
 async def connectRaceControl():
     while True:
-        data, headers, params, extra_headers = negotiate()
+        data, headers, params, additional_headers = negotiate()
         
 		# connect to redis 
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
         async with websockets.connect(
             f"{websocketUrl}/connect?{params}",
-            extra_headers=extra_headers,
+            additional_headers=additional_headers,
             ping_interval=None,
         ) as sock:
             try:
