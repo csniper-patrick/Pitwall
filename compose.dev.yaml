@@ -54,13 +54,18 @@ services:
     volumes:
       - redis-data:/data
   
-  race_control_msg_publisher:
+  race-control-publisher:
     <<: *python-container
-    command:
-      - /bin/sh
-      - -c 
-      - >
-        cd /opt/pitwall &&
-        python -m pip install -r requirements.txt &&
-        sleep 10 &&
-        python publisher/race-control.py
+    command: /opt/pitwall/entrypoint.sh publisher/race-control.py
+  
+  timing-publisher:
+    <<: *python-container
+    command: /opt/pitwall/entrypoint.sh publisher/timing.py
+  
+  pitlane-publisher:
+    <<: *python-container
+    command: /opt/pitwall/entrypoint.sh publisher/pitlane.py
+  
+  tyre-publisher:
+    <<: *python-container
+    command: /opt/pitwall/entrypoint.sh publisher/tyre.py

@@ -84,11 +84,7 @@ async def connectRaceControl():
                             "M": "Subscribe",
                             "A": [
                                 [
-                                    "RaceControlMessages",
-                                    "DriverList",
-                                    "WeatherData",
-                                    "SessionInfo",
-                                    "DriverRaceInfo"
+                                    "TyreStintSeries",
                                 ]
                             ],
                             "I": 1,
