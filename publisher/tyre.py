@@ -112,7 +112,7 @@ async def connectRaceControl():
                 if retry:
                     continue
                 else:
-                    await redis_client.close()
+                    await redis_client.aclose()
                     break
             finally:
                 await redis_client.close

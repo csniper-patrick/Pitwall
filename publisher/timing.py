@@ -39,7 +39,7 @@ staticUrl = urllib.parse.urljoin(
 clientProtocol = 1.5
 
 class debouncer:
-    def __init__(self, redis_client, channel, interval=5):
+    def __init__(self, redis_client, channel, interval=3):
         self.interval = interval
         self.redis_client = redis_client
         self.channel = channel
@@ -55,7 +55,7 @@ class debouncer:
     async def _delayed_publish(self):
         try:
             await asyncio.sleep(self.interval)
-            await self.redis_client.publish(self.channel, self.message)
+            await self.redis_client.publish(self.channel, json.dumps(self.message))
             self.debounce_task=None
             self.message={}
         except asyncio.CancelledError:
@@ -91,7 +91,7 @@ def negotiate():
 async def connectRaceControl():
     while True:
         data, headers, params, additional_headers = negotiate()
-        
+        lastLapTimeDebouncer = {}
 		# connect to redis 
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
         async with websockets.connect(
@@ -127,6 +127,21 @@ async def connectRaceControl():
                                 reference = await redis_client.json().get(msg["A"][0]) 
                                 reference = updateDictDelta(reference, msg["A"][1])
                                 redis_client.json().set(msg["A"][0], Path.root_path(), reference)
+                                # extract LastLapTime
+                                lastLapTimeDelta = dict([ (key, value.pop('LastLapTime', None))
+                                                        for key, value in msg["A"][1]["Lines"].items()
+                                                        if "LastLapTime" in value ])
+                                if len(lastLapTimeDelta) != 0:
+                                    for raceNumber, value in lastLapTimeDelta.items():
+                                        if raceNumber not in lastLapTimeDebouncer:
+                                            lastLapTimeDebouncer[raceNumber] = debouncer(redis_client=redis_client, channel=msg["A"][0])
+                                        if value is not None:
+                                            await lastLapTimeDebouncer[raceNumber].add_message( {
+                                                "Lines": dict([(raceNumber, dict(LastLapTime = value))])
+                                            })
+                                
+                                # residual
+                                msg["A"][1]["Lines"]=[(key, value) for key, value in msg["A"][1]["Lines"].items() if len(value)>0 ]
                                 # publish message
                                 await redis_client.publish(msg["A"][0], json.dumps(msg["A"][1]))
 
@@ -135,10 +150,10 @@ async def connectRaceControl():
                 if retry:
                     continue
                 else:
-                    await redis_client.close()
+                    await redis_client.aclose()
                     break
             finally:
-                await redis_client.close()
+                await redis_client.aclose()
 
 if __name__ == "__main__":
     asyncio.run(connectRaceControl())
