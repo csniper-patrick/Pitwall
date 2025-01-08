@@ -101,11 +101,12 @@ async def connectRaceControl():
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
-                                reference = await redis_client.json().get(msg["A"][0]) 
-                                reference = updateDictDelta(reference, msg["A"][1])
-                                redis_client.json().set(msg["A"][0], Path.root_path(), reference)
+                                channel, delta = msg["A"][0],  msg["A"][1]
+                                reference = await redis_client.json().get(channel) 
+                                reference = updateDictDelta(reference, delta)
+                                redis_client.json().set(channel, Path.root_path(), reference)
                                 # publish message
-                                await redis_client.publish(msg["A"][0], json.dumps(msg["A"][1]))
+                                await redis_client.publish(channel, json.dumps(delta))
 
             except Exception as error:
                 print(error)

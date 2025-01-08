@@ -124,26 +124,27 @@ async def connectRaceControl():
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
-                                reference = await redis_client.json().get(msg["A"][0]) 
-                                reference = updateDictDelta(reference, msg["A"][1])
-                                redis_client.json().set(msg["A"][0], Path.root_path(), reference)
+                                channel, delta = msg["A"][0],  msg["A"][1]
+                                reference = await redis_client.json().get(channel) 
+                                reference = updateDictDelta(reference, delta)
+                                redis_client.json().set(channel, Path.root_path(), reference)
                                 # extract LastLapTime
                                 lastLapTimeDelta = dict([ (key, value.pop('LastLapTime', None))
-                                                        for key, value in msg["A"][1]["Lines"].items()
+                                                        for key, value in delta["Lines"].items()
                                                         if "LastLapTime" in value ])
                                 if len(lastLapTimeDelta) != 0:
                                     for raceNumber, value in lastLapTimeDelta.items():
                                         if raceNumber not in lastLapTimeDebouncer:
-                                            lastLapTimeDebouncer[raceNumber] = debouncer(redis_client=redis_client, channel=msg["A"][0])
+                                            lastLapTimeDebouncer[raceNumber] = debouncer(redis_client=redis_client, channel=channel)
                                         if value is not None:
                                             await lastLapTimeDebouncer[raceNumber].add_message( {
                                                 "Lines": dict([(raceNumber, dict(LastLapTime = value))])
                                             })
                                 
                                 # residual
-                                msg["A"][1]["Lines"]=[(key, value) for key, value in msg["A"][1]["Lines"].items() if len(value)>0 ]
+                                delta["Lines"]=[(key, value) for key, value in delta["Lines"].items() if len(value)>0 ]
                                 # publish message
-                                await redis_client.publish(msg["A"][0], json.dumps(msg["A"][1]))
+                                await redis_client.publish(channel, json.dumps(delta))
 
             except Exception as error:
                 print(error)
