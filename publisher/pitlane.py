@@ -98,7 +98,7 @@ async def connectRaceControl():
                     # update data structure (full)
                     if "R" in messages:
                         for key, value in messages["R"].items():
-                            redis_client.json().set(key, Path.root_path(), value)
+                            await redis_client.json().set(key, Path.root_path(), value)
                     # update data structure (delta)
                     if "M" in messages:
                         for msg in messages["M"]:

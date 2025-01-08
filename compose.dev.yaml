@@ -69,3 +69,11 @@ services:
   tyre-publisher:
     <<: *python-container
     command: /opt/pitwall/entrypoint.sh publisher/tyre.py
+  
+  # radio-publisher:
+  #   <<: *python-container
+  #   command: /opt/pitwall/entrypoint.sh publisher/radio.py
+
+  # telemetry-publisher:
+  #   <<: *python-container
+  #   command: /opt/pitwall/entrypoint.sh publisher/telemetry.py

@@ -96,7 +96,7 @@ async def connectRaceControl():
                     # update data structure (full)
                     if "R" in messages:
                         for key, value in messages["R"].items():
-                            redis_client.json().set(key, Path.root_path(), value)
+                            await redis_client.json().set(key, Path.root_path(), value)
                     # update data structure (delta)
                     if "M" in messages:
                         for msg in messages["M"]:
@@ -116,7 +116,7 @@ async def connectRaceControl():
                     await redis_client.aclose()
                     break
             finally:
-                await redis_client.close
+                await redis_client.aclose()
 
 if __name__ == "__main__":
     asyncio.run(connectRaceControl())

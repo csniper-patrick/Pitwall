@@ -4,3 +4,6 @@ websockets>=14
 discordwebhook
 python-dotenv
 redis
+transformers
+wget
+torch

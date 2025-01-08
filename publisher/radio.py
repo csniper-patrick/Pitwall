@@ -7,9 +7,12 @@ import os
 from dotenv import load_dotenv
 import redis.asyncio as redis
 from redis.commands.json.path import Path
-import base64
-import zlib
 from utils import *
+from urllib.parse import urljoin
+from functools import reduce
+import os
+from transformers import pipeline
+import wget
 
 load_dotenv()
 
@@ -34,9 +37,10 @@ websocketUrl = urllib.parse.urljoin(
 )
 
 # staticUrl     = f"https://{api_host}/static"  if use_ssl == "true" else f"http://{api_host}/static"
-staticUrl = urllib.parse.urljoin(
-    f"https://{api_host}" if use_ssl else f"http://{api_host}", "/static"
-)
+# staticUrl = urllib.parse.urljoin(
+#     f"https://{api_host}" if use_ssl else f"http://{api_host}", "/static"
+# )
+staticUrl = "https://livetiming.formula1.com/static"
 
 clientProtocol = 1.5
 
@@ -70,6 +74,9 @@ def negotiate():
 async def connectRaceControl():
     while True:
         data, headers, params, additional_headers = negotiate()
+
+        model = os.getenv("WHISPERS_MODEL", default="distil-whisper/distil-small.en")
+        transcriber = pipeline("automatic-speech-recognition", model=model)
         
 		# connect to redis 
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
@@ -86,8 +93,7 @@ async def connectRaceControl():
                             "M": "Subscribe",
                             "A": [
                                 [
-                                    "Position.z",
-                                    "CarData.z",
+                                    "TeamRadio",
                                 ]
                             ],
                             "I": 1,
@@ -98,17 +104,29 @@ async def connectRaceControl():
                 while messages := json.loads(await sock.recv()):
                     # update data structure (full)
                     if "R" in messages:
-                        for key, value_zip in messages["R"].items():
-                            value = json.loads(zlib.decompress(base64.b64decode(value_zip), -zlib.MAX_WBITS))
-                            await redis_client.json().set(key.replace(".z",''), Path.root_path(), value)
+                        for key, value in messages["R"].items():
+                            await redis_client.json().set(key, Path.root_path(), value)
                     # update data structure (delta)
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
-                                channel, value_zip = msg["A"][0].replace(".z",''),  msg["A"][1]
-                                value = json.loads(zlib.decompress(base64.b64decode(value_zip), -zlib.MAX_WBITS))
-                                redis_client.json().set(channel, Path.root_path(), value)
-                                await redis_client.publish(channel, json.dumps(value))
+                                channel, delta = msg["A"][0],  msg["A"][1]
+                                reference = await redis_client.json().get(channel) 
+                                sessionInfo = await redis_client.json().get("SessionInfo")
+                                reference = updateDictDelta(reference, delta)
+                                redis_client.json().set(channel, Path.root_path(), reference)
+                                # audio transcription
+                                captures = delta["Captures"]
+                                if type(captures) == dict:
+                                    captures = [ capture for _, capture in captures.items() ]
+                                for capture in captures:
+                                    radioURL = reduce( urljoin, [staticUrl, sessionInfo['Path'], capture['Path']])
+                                    print(radioURL)
+                                    radioFile = wget.download(radioURL)
+                                    transcribe = transcriber(radioFile)
+                                    
+                                # publish message
+                                await redis_client.publish(channel, json.dumps(delta))
 
             except Exception as error:
                 print(error)
