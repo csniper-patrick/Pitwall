@@ -96,19 +96,18 @@ async def connectRaceControl():
                     )
                 )
                 verbose = os.getenv("VERBOSE") == "True"
-                while messages := await sock.recv():
-                    messages = json.loads(messages)
+                while messages := json.loads(await sock.recv()):
                     # update data structure (full)
                     if "R" in messages:
                         for key, value in messages["R"].items():
-                            await redis_client.json().set(key, Path.root_path(), value)
+                            redis_client.json().set(key, Path.root_path(), value)
                     # update data structure (delta)
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 reference = await redis_client.json().get(msg["A"][0]) 
                                 reference = updateDictDelta(reference, msg["A"][1])
-                                await redis_client.json().set(msg["A"][0], Path.root_path(), reference)
+                                redis_client.json().set(msg["A"][0], Path.root_path(), reference)
                                 # publish message
                                 await redis_client.publish(msg["A"][0], json.dumps(msg["A"][1]))
 
@@ -117,7 +116,10 @@ async def connectRaceControl():
                 if retry:
                     continue
                 else:
+                    await redis_client.close()
                     break
+            finally:
+                await redis_client.close()
 
 if __name__ == "__main__":
     asyncio.run(connectRaceControl())

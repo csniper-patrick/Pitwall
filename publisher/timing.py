@@ -38,6 +38,29 @@ staticUrl = urllib.parse.urljoin(
 
 clientProtocol = 1.5
 
+class debouncer:
+    def __init__(self, redis_client, channel, interval=5):
+        self.interval = interval
+        self.redis_client = redis_client
+        self.channel = channel
+        self.message = {}
+        self.debounce_task = None
+    
+    async def add_message(self, message):
+        self.message = updateDictDelta(self.message, message)
+        if self.debounce_task:
+            self.debounce_task.cancel()
+        self.debounce_task = asyncio.create_task(self._delayed_publish())
+    
+    async def _delayed_publish(self):
+        try:
+            await asyncio.sleep(self.interval)
+            await self.redis_client.publish(self.channel, self.message)
+            self.debounce_task=None
+            self.message={}
+        except asyncio.CancelledError:
+            pass
+
 def negotiate():
     connectionData = [{"name": "Streaming"}]
     try:
@@ -92,19 +115,18 @@ async def connectRaceControl():
                     )
                 )
                 verbose = os.getenv("VERBOSE") == "True"
-                while messages := await sock.recv():
-                    messages = json.loads(messages)
+                while messages := json.loads(await sock.recv()):
                     # update data structure (full)
                     if "R" in messages:
                         for key, value in messages["R"].items():
-                            await redis_client.json().set(key, Path.root_path(), value)
+                            redis_client.json().set(key, Path.root_path(), value)
                     # update data structure (delta)
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 reference = await redis_client.json().get(msg["A"][0]) 
                                 reference = updateDictDelta(reference, msg["A"][1])
-                                await redis_client.json().set(msg["A"][0], Path.root_path(), reference)
+                                redis_client.json().set(msg["A"][0], Path.root_path(), reference)
                                 # publish message
                                 await redis_client.publish(msg["A"][0], json.dumps(msg["A"][1]))
 
@@ -113,7 +135,10 @@ async def connectRaceControl():
                 if retry:
                     continue
                 else:
+                    await redis_client.close()
                     break
+            finally:
+                await redis_client.close()
 
 if __name__ == "__main__":
     asyncio.run(connectRaceControl())
