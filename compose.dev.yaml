@@ -10,14 +10,8 @@ x-python-container: &python-container
     redis:
       condition: service_started
   command: sleep infinity
-  environment:
-    - REDIS_HOST=redis
-    - VERBOSE=${VERBOSE:-False}
-    - USE_SSL=${USE_SSL:-False}
-    - API_HOST=${API_HOST:-proxy}
-    - RETRY=${RETRY:-False}
-    - VER_TAG=${CI_JOB_ID:-local}
-    - RACE_DIRECTOR=${RACE_DIRECTOR:-Race Director}
+  env_file:
+    - publish-dev.env
 
 services:
 
@@ -33,9 +27,8 @@ services:
     image: docker.io/library/python:3.12
     volumes:
       - ./mock-api/:/opt/
-    environment:
-      - SESSION_PATH=2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-03_Race/
-      - MESSAGE_GAP=${MESSAGE_GAP:-0.01}
+    env_file:
+      - mock-api-dev.env
     command:
       - /bin/sh
       - -c
@@ -69,11 +62,11 @@ services:
   tyre-publisher:
     <<: *python-container
     command: /opt/pitwall/entrypoint.sh publisher/tyre.py
+
+  telemetry-publisher:
+    <<: *python-container
+    command: /opt/pitwall/entrypoint.sh publisher/telemetry.py
   
   # radio-publisher:
   #   <<: *python-container
   #   command: /opt/pitwall/entrypoint.sh publisher/radio.py
-
-  # telemetry-publisher:
-  #   <<: *python-container
-  #   command: /opt/pitwall/entrypoint.sh publisher/telemetry.py

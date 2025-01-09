@@ -11,32 +11,7 @@ from utils import *
 
 load_dotenv()
 
-use_ssl = (os.getenv("USE_SSL", default="True")) == "True"
-api_host = os.getenv("API_HOST", default="livetiming.formula1.com")
-retry = (os.getenv("RETRY", default="True")) == "True"
-msgStylePath = os.getenv("MSG_STYLE", default="")
-
-# Redis configuration
-REDIS_HOST = os.getenv("REDIS_HOST", default="redis")
-REDIS_PORT = os.getenv("REDIS_PORT", default=6379) 
-REDIS_CHANNEL = "RACE_CONTROL"
-
-# livetimingUrl = f"https://{api_host}/signalr" if use_ssl == "true" else f"http://{api_host}/signalr"
-livetimingUrl = urllib.parse.urljoin(
-    f"https://{api_host}" if use_ssl else f"http://{api_host}", "/signalr"
-)
-
-# websocketUrl  = f"wss://{api_host}/signalr"   if use_ssl == "true" else f"ws://{api_host}/signalr"
-websocketUrl = urllib.parse.urljoin(
-    f"wss://{api_host}" if use_ssl else f"ws://{api_host}", "/signalr"
-)
-
-# staticUrl     = f"https://{api_host}/static"  if use_ssl == "true" else f"http://{api_host}/static"
-staticUrl = urllib.parse.urljoin(
-    f"https://{api_host}" if use_ssl else f"http://{api_host}", "/static"
-)
-
-clientProtocol = 1.5
+use_ssl, api_host, retry, livetimingUrl, websocketUrl, staticUrl, clientProtocol, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL = load_config()
 
 class debouncer:
     def __init__(self, redis_client, channel, interval=3):
