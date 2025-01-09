@@ -127,7 +127,7 @@ async def connectRaceControl():
                                 channel, delta = msg["A"][0],  msg["A"][1]
                                 reference = redis_client.json().get(channel) 
                                 reference = updateDictDelta(await reference, delta)
-                                redis_client.json().set(channel, Path.root_path(), reference)
+                                asyncio.create_task(redis_client.json().set(channel, Path.root_path(), reference))
                                 # extract LastLapTime
                                 lastLapTimeDelta = dict([ (key, value.pop('LastLapTime', None))
                                                         for key, value in delta["Lines"].items()
@@ -144,7 +144,7 @@ async def connectRaceControl():
                                 # residual
                                 delta["Lines"]=[(key, value) for key, value in delta["Lines"].items() if len(value)>0 ]
                                 # publish message
-                                await redis_client.publish(channel, json.dumps(delta))
+                                asyncio.create_task( redis_client.publish(channel, json.dumps(delta)) )
 
             except Exception as error:
                 print(error)

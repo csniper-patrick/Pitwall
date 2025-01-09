@@ -107,8 +107,8 @@ async def connectRaceControl():
                             if msg["H"] == "Streaming":
                                 channel, value_zip = msg["A"][0].replace(".z",''),  msg["A"][1]
                                 value = json.loads(zlib.decompress(base64.b64decode(value_zip), -zlib.MAX_WBITS))
-                                redis_client.json().set(channel, Path.root_path(), value)
-                                await redis_client.publish(channel, json.dumps(value))
+                                asyncio.create_task(redis_client.json().set(channel, Path.root_path(), value))
+                                asyncio.create_task(redis_client.publish(channel, json.dumps(value)))
 
             except Exception as error:
                 print(error)
