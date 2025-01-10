@@ -16,9 +16,9 @@ async def timingDataF1Handler(redis_client, raceNumber, delta):
     driverInfo = (await redis_client.json().get("DriverList"))[raceNumber]
     tyreStint = (await redis_client.json().get("TyreStintSeries"))["Stints"][raceNumber]
 
-    if tyreStint[-1]["Compound"] in msgStyle["compoundSymbol"]:
+    if len(tyreStint)>0 and tyreStint[-1]["Compound"] in msgStyle["compoundSymbol"]:
         currentCompound = f"{msgStyle["compoundSymbol"][tyreStint[-1]["Compound"]]}{tyreStint[-1]["Compound"]}"
-    else:
+    elif len(tyreStint)>0 :
         currentCompound = tyreStint[-1]["Compound"]
     
     discord = Discord(url=DISCORD_WEBHOOK)
@@ -98,6 +98,50 @@ async def timingDataF1Handler(redis_client, raceNumber, delta):
                 ],
                 avatar_url=driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
             )
+    # Handle knocked out of qualifying
+    if "KnockedOut" in delta and delta["KnockedOut"] and sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
+        print("knocked out")
+        discord.post(
+            username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
+            embeds=[
+                {
+                    "title": f"Knocked Out - P{timingDataF1['Position']}",
+                    "color": int(driverInfo['TeamColour'], 16),
+                }
+            ],
+            avatar_url=driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
+        )
+    # Handle retirement
+    if "Retired" in delta and delta["Retired"]:
+        print("retired")
+        discord.post(
+            username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
+            embeds=[
+                {
+                    "title": f"Retired{ (' - Lap ' + str(timingDataF1['NumberOfLaps'] + 1) )if 'NumberOfLaps' in timingDataF1 else '' }",
+                    "color": int(driverInfo['TeamColour'], 16),
+                }
+            ],
+            avatar_url=driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
+        )
+    # Race Leader
+    if "Position" in delta and delta["Position"] == "1" and sessionInfo["Type"] in ["Race", "Sprint"]:
+        print("race leader")
+        discord.post(
+            username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
+            embeds=[
+                {
+                    "title": f"Race Leader - {driverInfo['FullName']}",
+                    "fields": [
+                        {"name": "TeamName", "value": driverInfo["TeamName"], "inline": True},
+                    ],
+                    "color": int(driverInfo['TeamColour'], 16),
+                }
+            ],
+            avatar_url=driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
+        )
+
+
 
 async def connectRedisChannel():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
@@ -110,7 +154,7 @@ async def connectRedisChannel():
                 if "Lines" not in data:
                     continue
                 if type(data["Lines"])== dict:
-                    for raceNumber, delta in json.loads(payload["data"])["Lines"].items():
+                    for raceNumber, delta in data["Lines"].items():
                         asyncio.create_task(timingDataF1Handler(redis_client, raceNumber, delta))
 
 if __name__ == "__main__":
