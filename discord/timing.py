@@ -35,12 +35,20 @@ async def timingDataF1Handler(redis_client, raceNumber, delta):
                         "fields": [
                             {
                                 "name": "Sectors",
-                                "value": "".join([
-                                    "\U0001F7EA" if sector["OverallFastest"] else # purple square emoji
-                                    "\U0001F7E9" if sector["PersonalFastest"] else # green square emoji
-                                    "\U0001F7E8" # yellow square emoji
-                                    for sector in timingDataF1["Sectors"]
-                                ]),
+                                "value": "".join(
+                                    map(
+                                        lambda sector: (
+                                            "\U0001F7EA" # purple square emoji
+                                            if sector["OverallFastest"]
+                                            else (
+                                                "\U0001F7E9" # green square emoji
+                                                if sector["PersonalFastest"]
+                                                else "\U0001F7E8" # yellow square emoji
+                                            )
+                                        ),
+                                        timingDataF1["Sectors"],
+                                    )
+                                ),
                                 "inline": True
                             },
                             {
@@ -63,12 +71,20 @@ async def timingDataF1Handler(redis_client, raceNumber, delta):
                         "fields": [
                             {
                                 "name": "Sectors",
-                                "value": "".join([
-                                    "\U0001F7EA" if sector["OverallFastest"] else # purple square emoji
-                                    "\U0001F7E9" if sector["PersonalFastest"] else # green square emoji
-                                    "\U0001F7E8" # yellow square emoji
-                                    for sector in timingDataF1["Sectors"]
-                                ]),
+                                "value": "".join(
+                                    map(
+                                        lambda sector: (
+                                            "\U0001F7EA" # purple square emoji
+                                            if sector["OverallFastest"]
+                                            else (
+                                                "\U0001F7E9" # green square emoji
+                                                if sector["PersonalFastest"]
+                                                else "\U0001F7E8" # yellow square emoji
+                                            )
+                                        ),
+                                        timingDataF1["Sectors"],
+                                    )
+                                ),
                                 "inline": True
                             },
                             {
