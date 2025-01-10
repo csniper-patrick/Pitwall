@@ -62,33 +62,17 @@ services:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/race-control.py
   
-  race-control-discord:
-    <<: *discord-dev-container
-    command: /opt/pitwall/entrypoint.sh discord/race-control.py
-  
   timing-publisher:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/timing.py
-  
-  timing-discord:
-    <<: *discord-dev-container
-    command: /opt/pitwall/entrypoint.sh discord/timing.py
   
   pitlane-publisher:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/pitlane.py
   
-  pitlane-discord:
-    <<: *discord-dev-container
-    command: /opt/pitwall/entrypoint.sh discord/pitlane.py
-  
   tyre-publisher:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/tyre.py
-  
-  tyre-discord:
-    <<: *discord-dev-container
-    command: /opt/pitwall/entrypoint.sh discord/tyre.py
 
   telemetry-publisher:
     <<: *publisher-dev-container
@@ -97,3 +81,19 @@ services:
   # radio-publisher:
   #   <<: *publisher-dev-container
   #   command: /opt/pitwall/entrypoint.sh publisher/radio.py
+  
+  race-control-discord:
+    <<: *discord-dev-container
+    command: /opt/pitwall/entrypoint.sh discord/race-control.py
+  
+  timing-discord:
+    <<: *discord-dev-container
+    command: /opt/pitwall/entrypoint.sh discord/timing.py
+  
+  pitlane-discord:
+    <<: *discord-dev-container
+    command: /opt/pitwall/entrypoint.sh discord/pitlane.py
+  
+  tyre-discord:
+    <<: *discord-dev-container
+    command: /opt/pitwall/entrypoint.sh discord/tyre.py
