@@ -51,23 +51,23 @@ def msec2timeStr(msec: int, signed: bool = False):
 
 def load_config():
 
-    use_ssl = (os.getenv("USE_SSL", default="True")) == "True"
-    api_host = os.getenv("API_HOST", default="livetiming.formula1.com")
-    retry = (os.getenv("RETRY", default="True")) == "True"
+    USE_SSL = (os.getenv("USE_SSL", default="True")) == "True"
+    API_HOST = os.getenv("API_HOST", default="livetiming.formula1.com")
+    RETRY = (os.getenv("RETRY", default="True")) == "True"
 
-    # livetimingUrl = f"https://{api_host}/signalr" if use_ssl == "true" else f"http://{api_host}/signalr"
+    # livetimingUrl = f"https://{API_HOST}/signalr" if USE_SSL == "true" else f"http://{API_HOST}/signalr"
     livetimingUrl = urllib.parse.urljoin(
-        f"https://{api_host}" if use_ssl else f"http://{api_host}", "/signalr"
+        f"https://{API_HOST}" if USE_SSL else f"http://{API_HOST}", "/signalr"
     )
 
-    # websocketUrl  = f"wss://{api_host}/signalr"   if use_ssl == "true" else f"ws://{api_host}/signalr"
+    # websocketUrl  = f"wss://{API_HOST}/signalr"   if USE_SSL == "true" else f"ws://{API_HOST}/signalr"
     websocketUrl = urllib.parse.urljoin(
-        f"wss://{api_host}" if use_ssl else f"ws://{api_host}", "/signalr"
+        f"wss://{API_HOST}" if USE_SSL else f"ws://{API_HOST}", "/signalr"
     )
 
-    # staticUrl     = f"https://{api_host}/static"  if use_ssl == "true" else f"http://{api_host}/static"
+    # staticUrl     = f"https://{API_HOST}/static"  if USE_SSL == "true" else f"http://{API_HOST}/static"
     staticUrl = urllib.parse.urljoin(
-        f"https://{api_host}" if use_ssl else f"http://{api_host}", "/static"
+        f"https://{API_HOST}" if USE_SSL else f"http://{API_HOST}", "/static"
     )
 
     # Redis configuration
@@ -77,4 +77,4 @@ def load_config():
 
     clientProtocol = 1.5
 
-    return use_ssl, api_host, retry, livetimingUrl, websocketUrl, staticUrl, clientProtocol, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL
+    return USE_SSL, API_HOST, RETRY, livetimingUrl, websocketUrl, staticUrl, clientProtocol, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL

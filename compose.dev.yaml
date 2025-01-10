@@ -2,16 +2,27 @@ volumes:
   redis-data:
     external: false
 
-x-python-container: &python-container
+x-dev-container: &dev-container
   image: docker.io/library/python:3.12
   volumes:
     - ./:/opt/pitwall/
+  command: sleep infinity
+
+x-publisher-dev-container: &publisher-dev-container
+  <<: *dev-container 
   depends_on:
     redis:
       condition: service_started
-  command: sleep infinity
   env_file:
     - publish-dev.env
+
+x-discord-dev-container: &discord-dev-container
+  <<: *dev-container 
+  depends_on:
+    redis:
+      condition: service_started
+  env_file:
+    - discord-dev.env
 
 services:
 
@@ -48,25 +59,29 @@ services:
       - redis-data:/data
   
   race-control-publisher:
-    <<: *python-container
+    <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/race-control.py
   
+  race-control-discord:
+    <<: *discord-dev-container
+    command: /opt/pitwall/entrypoint.sh discord/race-control.py
+  
   timing-publisher:
-    <<: *python-container
+    <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/timing.py
   
   pitlane-publisher:
-    <<: *python-container
+    <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/pitlane.py
   
   tyre-publisher:
-    <<: *python-container
+    <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/tyre.py
 
   telemetry-publisher:
-    <<: *python-container
+    <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/telemetry.py
   
   # radio-publisher:
-  #   <<: *python-container
+  #   <<: *publisher-dev-container
   #   command: /opt/pitwall/entrypoint.sh publisher/radio.py

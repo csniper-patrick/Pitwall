@@ -11,7 +11,7 @@ from utils import *
 
 load_dotenv()
 
-use_ssl, api_host, retry, livetimingUrl, websocketUrl, staticUrl, clientProtocol, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL = load_config()
+USE_SSL, API_HOST, RETRY, livetimingUrl, websocketUrl, staticUrl, clientProtocol, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL = load_config()
 
 def negotiate():
     connectionData = [{"name": "Streaming"}]
@@ -40,7 +40,7 @@ def negotiate():
     except:
         print("error")
 
-async def connectRaceControl():
+async def connectLiveTiming():
     while True:
         data, headers, params, additional_headers = negotiate()
         
@@ -87,7 +87,7 @@ async def connectRaceControl():
 
             except Exception as error:
                 print(error)
-                if retry:
+                if RETRY:
                     continue
                 else:
                     await redis_client.aclose()
@@ -96,4 +96,4 @@ async def connectRaceControl():
                 await redis_client.aclose()
 
 if __name__ == "__main__":
-    asyncio.run(connectRaceControl())
+    asyncio.run(connectLiveTiming())
