@@ -81,6 +81,10 @@ services:
   tyre-publisher:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/tyre.py
+  
+  tyre-discord:
+    <<: *discord-dev-container
+    command: /opt/pitwall/entrypoint.sh discord/tyre.py
 
   telemetry-publisher:
     <<: *publisher-dev-container
