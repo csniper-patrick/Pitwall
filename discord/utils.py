@@ -43,21 +43,3 @@ def load_config():
     RETRY = (os.getenv("RETRY", default="True")) == "True"
 
     return DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY
-
-def updateDictDelta(obj, delta):
-    for key, value in delta.items():
-        if key not in obj:
-            obj[key] = value
-        elif type(value) == dict and type(obj[key]) == dict:
-            obj[key] = updateDictDelta(obj[key], value)
-        elif (
-            type(value) == dict
-            and type(obj[key]) == list
-            and all([k.isnumeric() for k in value.keys()])
-        ):
-            tempDict = dict([(str(idx), value) for idx, value in enumerate(obj[key])])
-            tempDict = updateDictDelta(tempDict, value)
-            obj[key] = [value for _, value in tempDict.items()]
-        else:
-            obj[key] = value
-    return obj

@@ -1,9 +1,6 @@
-import requests
 import json
 import asyncio
-import os
 import redis.asyncio as redis
-from redis.commands.json.path import Path
 from dotenv import load_dotenv
 from utils import *
 from discordwebhook import Discord
@@ -12,7 +9,7 @@ load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
-async def raceControlMessageHandler(messages):
+async def raceControlMessageHandler(redis_client, messages):
     discord = Discord(url=DISCORD_WEBHOOK)
     flagColor = msgStyle["flagColor"]
     flagSymbol = msgStyle["flagSymbol"]
@@ -20,7 +17,6 @@ async def raceControlMessageHandler(messages):
     if type( messages["Messages"] ) == dict :
         messages["Messages"] = [ value for _, value in messages["Messages"].items() ]
     for content in messages["Messages"]:
-        print(json.dumps(content, indent=2))
         if "Flag" in content and content["Flag"] == "BLUE":
             continue
         if "Flag" in content and content["Flag"] in flagSymbol:
@@ -55,7 +51,7 @@ async def connectRedisChannel():
         await pubsub.subscribe("RaceControlMessages")
         async for payload in pubsub.listen() :
             if payload["type"] == "message" :
-                asyncio.create_task(raceControlMessageHandler(json.loads(payload["data"])))
+                asyncio.create_task(raceControlMessageHandler(redis_client, json.loads(payload["data"])))
 
 if __name__ == "__main__":
     asyncio.run(connectRedisChannel())

@@ -70,6 +70,10 @@ services:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/timing.py
   
+  timing-discord:
+    <<: *discord-dev-container
+    command: /opt/pitwall/entrypoint.sh discord/timing.py
+  
   pitlane-publisher:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/pitlane.py
