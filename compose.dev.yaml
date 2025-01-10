@@ -78,6 +78,10 @@ services:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/pitlane.py
   
+  pitlane-discord:
+    <<: *discord-dev-container
+    command: /opt/pitwall/entrypoint.sh discord/pitlane.py
+  
   tyre-publisher:
     <<: *publisher-dev-container
     command: /opt/pitwall/entrypoint.sh publisher/tyre.py
