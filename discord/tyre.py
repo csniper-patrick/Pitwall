@@ -9,13 +9,12 @@ load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
-async def tyresStintSeriesHandler(redis_client, raceNumber, delta):
+async def tyresStintSeriesHandler(redis_client, discord, raceNumber, delta):
     # get data from redis
     sessionInfo = await redis_client.json().get("SessionInfo")
     timingDataF1 = (await redis_client.json().get("TimingDataF1"))["Lines"][raceNumber]
     driverInfo = (await redis_client.json().get("DriverList"))[raceNumber]
     tyreStint = (await redis_client.json().get("TyreStintSeries"))["Stints"][raceNumber]
-    discord = Discord(url=DISCORD_WEBHOOK)
     if sessionInfo["Type"] not in ["Race", "Sprint"]:
         return
     for idx, stint in delta.items():
@@ -42,6 +41,7 @@ async def tyresStintSeriesHandler(redis_client, raceNumber, delta):
 
 async def connectRedisChannel():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("TyreStintSeries")
@@ -50,7 +50,7 @@ async def connectRedisChannel():
                 stints = json.loads(payload["data"])["Stints"]
                 for raceNumber, delta in stints.items():
                     if type(delta) == dict:
-                        asyncio.create_task(tyresStintSeriesHandler(redis_client, raceNumber, delta))
+                        asyncio.create_task(tyresStintSeriesHandler(redis_client, discord, raceNumber, delta))
                     
 
 if __name__ == "__main__":

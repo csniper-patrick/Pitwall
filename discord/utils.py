@@ -1,6 +1,24 @@
 import os
 import json
 
+def updateDictDelta(obj, delta):
+    for key, value in delta.items():
+        if key not in obj:
+            obj[key] = value
+        elif type(value) == dict and type(obj[key]) == dict:
+            obj[key] = updateDictDelta(obj[key], value)
+        elif (
+            type(value) == dict
+            and type(obj[key]) == list
+            and all([k.isnumeric() for k in value.keys()])
+        ):
+            tempDict = dict([(str(idx), value) for idx, value in enumerate(obj[key])])
+            tempDict = updateDictDelta(tempDict, value)
+            obj[key] = [value for _, value in tempDict.items()]
+        else:
+            obj[key] = value
+    return obj
+
 def load_config():
     
     DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")

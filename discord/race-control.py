@@ -9,8 +9,7 @@ load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
-async def raceControlMessageHandler(redis_client, messages):
-    discord = Discord(url=DISCORD_WEBHOOK)
+async def raceControlMessageHandler(redis_client, discord, messages):
     flagColor = msgStyle["flagColor"]
     flagSymbol = msgStyle["flagSymbol"]
     modeColor = msgStyle["modeColor"]
@@ -46,12 +45,13 @@ async def raceControlMessageHandler(redis_client, messages):
 
 async def connectRedisChannel():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("RaceControlMessages")
         async for payload in pubsub.listen() :
             if payload["type"] == "message" :
-                asyncio.create_task(raceControlMessageHandler(redis_client, json.loads(payload["data"])))
+                asyncio.create_task(raceControlMessageHandler(redis_client, discord, json.loads(payload["data"])))
 
 if __name__ == "__main__":
     asyncio.run(connectRedisChannel())

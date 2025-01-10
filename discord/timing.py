@@ -9,7 +9,7 @@ load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
-async def timingDataF1Handler(redis_client, raceNumber, delta):
+async def timingDataF1Handler(redis_client, discord, raceNumber, delta):
     # get data from redis
     sessionInfo = await redis_client.json().get("SessionInfo")
     timingDataF1 = (await redis_client.json().get("TimingDataF1"))["Lines"][raceNumber]
@@ -21,7 +21,6 @@ async def timingDataF1Handler(redis_client, raceNumber, delta):
     elif len(tyreStint)>0 :
         currentCompound = tyreStint[-1]["Compound"]
     
-    discord = Discord(url=DISCORD_WEBHOOK)
     # Handle Last Lap Time update
     if "LastLapTime" in delta and "Value" in delta["LastLapTime"] and delta["LastLapTime"]["Value"] != "":
         isOverallFastest = ('OverallFastest' in delta["LastLapTime"] and delta["LastLapTime"]["OverallFastest"]) or ('OverallFastest' not in delta["LastLapTime"] and timingDataF1["LastLapTime"]["OverallFastest"])
@@ -145,6 +144,7 @@ async def timingDataF1Handler(redis_client, raceNumber, delta):
 
 async def connectRedisChannel():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("TimingDataF1")
@@ -155,7 +155,7 @@ async def connectRedisChannel():
                     continue
                 if type(data["Lines"])== dict:
                     for raceNumber, delta in data["Lines"].items():
-                        asyncio.create_task(timingDataF1Handler(redis_client, raceNumber, delta))
+                        asyncio.create_task(timingDataF1Handler(redis_client, discord, raceNumber, delta))
 
 if __name__ == "__main__":
     asyncio.run(connectRedisChannel())
