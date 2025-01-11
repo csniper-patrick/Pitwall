@@ -1,0 +1,130 @@
+{
+  "Catalunya": {
+    "mean": 22.905,
+    "std": 3.032
+  },
+  "Spielberg": {
+    "mean": 22.218,
+    "std": 3.497
+  },
+  "Silverstone": {
+    "mean": 29.603,
+    "std": 2.512
+  },
+  "Hungaroring": {
+    "mean": 23.754,
+    "std": 4.647
+  },
+  "Spa-Francorchamps": {
+    "mean": 23.992,
+    "std": 3.637
+  },
+  "Zandvoort": {
+    "mean": 22.58,
+    "std": 5.379
+  },
+  "Monza": {
+    "mean": 26.001,
+    "std": 3.346
+  },
+  "Baku": {
+    "mean": 19.774,
+    "std": 2.271
+  },
+  "Singapore": {
+    "mean": 30.807,
+    "std": 3.553
+  },
+  "Austin": {
+    "mean": 24.937,
+    "std": 2.816
+  },
+  "Mexico City": {
+    "mean": 23.595,
+    "std": 3.413
+  },
+  "Interlagos": {
+    "mean": 23.176,
+    "std": 4.383
+  },
+  "Las Vegas": {
+    "mean": 22.52,
+    "std": 3.708
+  },
+  "Lusail": {
+    "mean": 29.303,
+    "std": 4.164
+  },
+  "Yas Marina Circuit": {
+    "mean": 22.602,
+    "std": 2.802
+  },
+  "Sakhir": {
+    "mean": 25.806,
+    "std": 3.363
+  },
+  "Jeddah": {
+    "mean": 23.3,
+    "std": 4.197
+  },
+  "Melbourne": {
+    "mean": 23.545,
+    "std": 3.578
+  },
+  "Monte Carlo": {
+    "mean": 24.819,
+    "std": 1.915
+  },
+  "Montreal": {
+    "mean": 24.491,
+    "std": 2.082
+  },
+  "Suzuka": {
+    "mean": 26.63,
+    "std": 7.611
+  },
+  "Imola": {
+    "mean": 33.888,
+    "std": 7.462
+  },
+  "Algarve International Circuit": {
+    "mean": 25.136,
+    "std": 3.455
+  },
+  "Paul Ricard": {
+    "mean": 30.8,
+    "std": 1.497
+  },
+  "Sochi": {
+    "mean": 31.01,
+    "std": 2.604
+  },
+  "Istanbul": {
+    "mean": 24.684,
+    "std": 3.066
+  },
+  "Losail": {
+    "mean": 26.373,
+    "std": 2.515
+  },
+  "Mugello": {
+    "mean": 22.234,
+    "std": 4.063
+  },
+  "N\u00fcrburgring": {
+    "mean": 23.424,
+    "std": 2.256
+  },
+  "Sakhir Outer Track": {
+    "mean": 26.159,
+    "std": 5.07
+  },
+  "Shanghai": {
+    "mean": 25.643,
+    "std": 6.789
+  },
+  "Hockenheim": {
+    "mean": 21.421,
+    "std": 2.026
+  }
+}

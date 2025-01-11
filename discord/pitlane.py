@@ -4,11 +4,19 @@ import redis.asyncio as redis
 from dotenv import load_dotenv
 from utils import *
 from discordwebhook import Discord
+from collections import defaultdict
 import re
 
 load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
+
+# load pit time reference
+pit_time_reference=defaultdict(lambda: dict(mean=25., std=5.))
+with open('discord/pit-time-stat.json', 'r') as file:
+    for circuit, stat in json.load(file).items():
+        pit_time_reference[circuit]['mean']=stat["mean"]
+        pit_time_reference[circuit]['std']=stat["std"]
 
 async def pitLaneTimeCollectionHandler(redis_client, discord, raceNumber, delta):
     # get data from redis
@@ -22,7 +30,9 @@ async def pitLaneTimeCollectionHandler(redis_client, discord, raceNumber, delta)
         [float(i) for i in re.split(":", delta["Duration"])]
     )
     durationSec = sum([val * scaler for val, scaler in zip(durationSec, [1, 60])])
-    if durationSec >= 30.0 and durationSec <= 600.0:
+    circuit=sessionInfo['Meeting']['Circuit']['ShortName']
+    z_score_1 = pit_time_reference[circuit]['mean']+pit_time_reference[circuit]['std']
+    if durationSec >= z_score_1 and durationSec <= 600.0:
         discord.post(
             username=f"{driverInfo['TeamName']}{VER_TAG}",
             embeds=[
