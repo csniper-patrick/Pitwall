@@ -7,7 +7,7 @@ from discordwebhook import Discord
 
 load_dotenv()
 
-DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
+DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
 async def raceControlMessageHandler(redis_client, discord, messages):
     flagColor = msgStyle["flagColor"]
@@ -21,7 +21,7 @@ async def raceControlMessageHandler(redis_client, discord, messages):
         if "Flag" in content and content["Flag"] in flagSymbol:
             content["Message"] = f"{flagSymbol[content['Flag']]}{content['Message']}"
         discord.post(
-            username=f"{RACE_DIRECTOR}{VER_TAG}",
+            username=f"{msgStyle["raceDirector"]}{VER_TAG}",
             embeds=[
                 {
                     "title": content["Message"],

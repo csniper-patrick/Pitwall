@@ -9,7 +9,7 @@ import re
 
 load_dotenv()
 
-DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
+DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
 # load pit time reference
 pit_time_reference=defaultdict(lambda: dict(mean=25., std=5.))

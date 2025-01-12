@@ -23,8 +23,7 @@ def load_config():
     
     DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")
     VER_TAG = os.getenv("VER_TAG", default="")
-    RACE_DIRECTOR = os.getenv("RACE_DIRECTOR", default="Race Director")
-    MSG_STYLE = os.getenv("MSG_STYLE", default="")
+    MSG_STYLE_PATH = os.getenv("MSG_STYLE_PATH", default="")
     msgStyle = {
         "flagColor": {
             "GREEN": 5763719,
@@ -48,9 +47,10 @@ def load_config():
             "WET": 2123412,  # BLUE
         },
         "compoundSymbol": {},
+        "raceDirector": "Race Director"
     }
-    if os.path.isfile(MSG_STYLE):
-        with open(MSG_STYLE) as f:
+    if os.path.isfile(MSG_STYLE_PATH):
+        with open(MSG_STYLE_PATH) as f:
             msgStyle = updateDictDelta(msgStyle, json.load(f))
 
     # Redis configuration
@@ -60,4 +60,4 @@ def load_config():
 
     RETRY = (os.getenv("RETRY", default="True")) == "True"
 
-    return DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY
+    return DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY
