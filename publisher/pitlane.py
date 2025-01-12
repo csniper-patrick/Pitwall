@@ -79,8 +79,13 @@ async def connectLiveTiming():
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 channel, delta = msg["A"][0],  msg["A"][1]
-                                reference = redis_client.json().get(channel) 
-                                reference = updateDictDelta(await reference, delta)
+                                reference = await redis_client.json().get(channel)
+                                match channel:
+                                    case  "PitLaneTimeCollection":
+                                        if deleted := delta["PitTimes"].pop("_deleted", None) :
+                                            for key in deleted:
+                                                reference["PitTimes"].pop(key, None)
+                                reference = updateDictDelta(reference, delta)
                                 asyncio.create_task(redis_client.json().set(channel, Path.root_path(), reference))
                                 # publish message
                                 asyncio.create_task( redis_client.publish(channel, json.dumps(delta)) )

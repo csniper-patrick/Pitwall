@@ -13,7 +13,7 @@ DISCORD_WEBHOOK, VER_TAG, RACE_DIRECTOR, msgStyle, REDIS_HOST, REDIS_PORT, REDIS
 
 # load pit time reference
 pit_time_reference=defaultdict(lambda: dict(mean=25., std=5.))
-with open('discord/pit-time-stat.json', 'r') as file:
+with open('data/pit-time-stat.json', 'r') as file:
     for circuit, stat in json.load(file).items():
         pit_time_reference[circuit]['mean']=stat["mean"]
         pit_time_reference[circuit]['std']=stat["std"]
@@ -41,7 +41,7 @@ async def pitLaneTimeCollectionHandler(redis_client, discord, raceNumber, delta)
                     "fields": [
                         {
                             "name": "Driver",
-                            "value": driverInfo["BroadcastName"],
+                            "value": driverInfo["FullName"],
                             "inline": True,
                         },
                     ],
@@ -63,7 +63,7 @@ async def pitStopHandler(redis_client, discord, message):
                 "fields": [
                     {
                         "name": "Driver",
-                        "value": driverInfo["BroadcastName"],
+                        "value": driverInfo["FullName"],
                         "inline": True,
                     },
                 ],
@@ -80,7 +80,6 @@ async def connectRedisChannel():
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("PitLaneTimeCollection", "PitStop", "PitStopSeries")
         async for payload in pubsub.listen() :
-            print(payload)
             if payload["type"] == "message" :
                 match payload["channel"].decode("utf-8"):
                     case "PitLaneTimeCollection":
