@@ -117,7 +117,7 @@ async def connectLiveTiming():
                                             })
                                 
                                 # residual
-                                delta["Lines"]=[(key, value) for key, value in delta["Lines"].items() if len(value)>0 ]
+                                delta["Lines"]=dict([(key, value) for key, value in delta["Lines"].items() if len(value)>0 ])
                                 # publish message
                                 asyncio.create_task( redis_client.publish(channel, json.dumps(delta)) )
 

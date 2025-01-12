@@ -99,7 +99,6 @@ async def timingDataF1Handler(redis_client, discord, raceNumber, delta):
             )
     # Handle knocked out of qualifying
     if "KnockedOut" in delta and delta["KnockedOut"] and sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
-        print("knocked out")
         discord.post(
             username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
             embeds=[
@@ -112,7 +111,6 @@ async def timingDataF1Handler(redis_client, discord, raceNumber, delta):
         )
     # Handle retirement
     if "Retired" in delta and delta["Retired"]:
-        print("retired")
         discord.post(
             username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
             embeds=[
@@ -125,7 +123,6 @@ async def timingDataF1Handler(redis_client, discord, raceNumber, delta):
         )
     # Race Leader
     if "Position" in delta and delta["Position"] == "1" and sessionInfo["Type"] in ["Race", "Sprint"]:
-        print("race leader")
         discord.post(
             username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
             embeds=[
