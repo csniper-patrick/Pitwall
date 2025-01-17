@@ -58,9 +58,9 @@ services:
     volumes:
       - redis-data:/data
   
-  race-control-publisher:
+  pitwall-publisher:
     <<: *publisher-dev-container
-    command: /opt/entrypoint.sh publisher/race-control.py
+    command: /opt/entrypoint.sh publisher/pitwall.py
   
   timing-publisher:
     <<: *publisher-dev-container
@@ -82,9 +82,9 @@ services:
   #   <<: *publisher-dev-container
   #   command: /opt/entrypoint.sh publisher/radio.py
   
-  race-control-discord:
+  pitwall-discord:
     <<: *discord-dev-container
-    command: /opt/entrypoint.sh discord/race-control.py
+    command: /opt/entrypoint.sh discord/pitwall.py
   
   timing-discord:
     <<: *discord-dev-container
