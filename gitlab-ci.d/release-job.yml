@@ -8,7 +8,7 @@
     - podman pull "$CI_REGISTRY_IMAGE/pitwall:$CI_COMMIT_SHORT_SHA-amd64"
     - podman pull "$CI_REGISTRY_IMAGE/pitwall:$CI_COMMIT_SHORT_SHA-arm64"
     - podman tag "$CI_REGISTRY_IMAGE/pitwall:$CI_COMMIT_SHORT_SHA-amd64" "$IMAGE_FULLNAME:$IMAGE_TAG-amd64"
-    - podman tag "$CI_REGISTRY_IMAGE/pitwall:$CI_COMMIT_SHORT_SHA-arm64" "$IMAGE_FULLNAME:$CI_COMMIT_TAG-arm64"
+    - podman tag "$CI_REGISTRY_IMAGE/pitwall:$CI_COMMIT_SHORT_SHA-arm64" "$IMAGE_FULLNAME:$IMAGE_TAG-arm64"
     - podman manifest create $IMAGE_FULLNAME:$IMAGE_TAG $IMAGE_FULLNAME:$IMAGE_TAG-amd64 $IMAGE_FULLNAME:$IMAGE_TAG-arm64
     - podman manifest push --all $IMAGE_FULLNAME:$IMAGE_TAG
 
