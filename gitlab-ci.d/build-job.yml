@@ -3,7 +3,7 @@ build-pitwall-amd64-image:
   image: quay.io/podman/stable
   timeout: 3h
   retry: 2
-  kooks:
+  hooks:
     pre_get_sources_script:
       - umask 0022
   before_script:
@@ -17,7 +17,7 @@ build-pitwall-arm64-image:
   image: quay.io/podman/stable
   timeout: 3h
   retry: 2
-  kooks:
+  hooks:
     pre_get_sources_script:
       - umask 0022
   before_script:
