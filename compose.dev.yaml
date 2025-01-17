@@ -5,7 +5,7 @@ volumes:
 x-dev-container: &dev-container
   image: docker.io/library/python:3.12
   volumes:
-    - ./:/opt/pitwall/
+    - ./:/opt/
   command: sleep infinity
 
 x-publisher-dev-container: &publisher-dev-container
@@ -60,40 +60,40 @@ services:
   
   race-control-publisher:
     <<: *publisher-dev-container
-    command: /opt/pitwall/entrypoint.sh publisher/race-control.py
+    command: /opt/entrypoint.sh publisher/race-control.py
   
   timing-publisher:
     <<: *publisher-dev-container
-    command: /opt/pitwall/entrypoint.sh publisher/timing.py
+    command: /opt/entrypoint.sh publisher/timing.py
   
   pitlane-publisher:
     <<: *publisher-dev-container
-    command: /opt/pitwall/entrypoint.sh publisher/pitlane.py
+    command: /opt/entrypoint.sh publisher/pitlane.py
   
   tyre-publisher:
     <<: *publisher-dev-container
-    command: /opt/pitwall/entrypoint.sh publisher/tyre.py
+    command: /opt/entrypoint.sh publisher/tyre.py
 
   telemetry-publisher:
     <<: *publisher-dev-container
-    command: /opt/pitwall/entrypoint.sh publisher/telemetry.py
+    command: /opt/entrypoint.sh publisher/telemetry.py
   
   # radio-publisher:
   #   <<: *publisher-dev-container
-  #   command: /opt/pitwall/entrypoint.sh publisher/radio.py
+  #   command: /opt/entrypoint.sh publisher/radio.py
   
   race-control-discord:
     <<: *discord-dev-container
-    command: /opt/pitwall/entrypoint.sh discord/race-control.py
+    command: /opt/entrypoint.sh discord/race-control.py
   
   timing-discord:
     <<: *discord-dev-container
-    command: /opt/pitwall/entrypoint.sh discord/timing.py
+    command: /opt/entrypoint.sh discord/timing.py
   
   pitlane-discord:
     <<: *discord-dev-container
-    command: /opt/pitwall/entrypoint.sh discord/pitlane.py
+    command: /opt/entrypoint.sh discord/pitlane.py
   
   tyre-discord:
     <<: *discord-dev-container
-    command: /opt/pitwall/entrypoint.sh discord/tyre.py
+    command: /opt/entrypoint.sh discord/tyre.py

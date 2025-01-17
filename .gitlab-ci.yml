@@ -1,0 +1,19 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+cache: []
+
+stages:
+  - build
+  - test
+  - report
+  - deploy
+  - release
+
+include:
+  - local: 'gitlab-ci.d/**.yml'
+    rules:
+      - if: '$CI_PIPELINE_SOURCE != "schedule"'
+  # - local: 'gitlab-ci.d/scheduled-job.yml'
+  #   rules:
+  #     - if: '$CI_PIPELINE_SOURCE == "schedule"'
