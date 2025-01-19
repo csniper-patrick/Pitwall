@@ -1,0 +1,71 @@
+volumes:
+  redis-data:
+    external: false
+
+x-app-container: &app-container
+  image: docker.io/csniper/pitwall:nightly
+
+x-publisher-app-container: &publisher-app-container
+  <<: *app-container 
+  depends_on:
+    redis:
+      condition: service_started
+  env_file:
+    - publish.env
+
+x-discord-app-container: &discord-app-container
+  <<: *app-container 
+  depends_on:
+    redis:
+      condition: service_started
+  env_file:
+    - discord.env
+
+services:
+
+  redis:
+    image: docker.io/redis/redis-stack-server:latest
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-data:/data
+  
+  race-control-publisher:
+    <<: *publisher-app-container
+    command: publisher/race-control.py
+  
+  timing-publisher:
+    <<: *publisher-app-container
+    command: publisher/timing.py
+  
+  pitlane-publisher:
+    <<: *publisher-app-container
+    command: publisher/pitlane.py
+  
+  tyre-publisher:
+    <<: *publisher-app-container
+    command: publisher/tyre.py
+
+  telemetry-publisher:
+    <<: *publisher-app-container
+    command: publisher/telemetry.py
+  
+  # radio-publisher:
+  #   <<: *publisher-app-container
+  #   command: publisher/radio.py
+  
+  race-control-discord:
+    <<: *discord-app-container
+    command: discord/race-control.py
+  
+  timing-discord:
+    <<: *discord-app-container
+    command: discord/timing.py
+  
+  pitlane-discord:
+    <<: *discord-app-container
+    command: discord/pitlane.py
+  
+  tyre-discord:
+    <<: *discord-app-container
+    command: discord/tyre.py
