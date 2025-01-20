@@ -1,0 +1,9 @@
+build-podman-compose-image:
+  stage: build
+  image: quay.io/podman/stable
+  script:
+    - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - podman build -f build/podman-compose.containerfile -t "$CI_REGISTRY_IMAGE/podman-compose:latest" .
+    - podman push "$CI_REGISTRY_IMAGE/podman-compose:latest"
+  rules:
+      - if: '$CI_PIPELINE_SOURCE == "schedule"'
