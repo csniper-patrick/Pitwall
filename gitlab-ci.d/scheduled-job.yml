@@ -1,9 +1,36 @@
-build-podman-compose-image:
+build-podman-compose-amd64-image:
   stage: build
   image: quay.io/podman/stable
   script:
     - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
-    - podman build -f build/podman-compose.containerfile -t "$CI_REGISTRY_IMAGE/podman-compose:latest" .
-    - podman push "$CI_REGISTRY_IMAGE/podman-compose:latest"
+    - podman build -f build/podman-compose.containerfile -t "$CI_REGISTRY_IMAGE/podman-compose:$CI_COMMIT_SHORT_SHA-amd64" .
+    - podman push "$CI_REGISTRY_IMAGE/podman-compose:latest-amd64"
   rules:
-      - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+build-podman-compose-arm64-image:
+  stage: build
+  image: quay.io/podman/stable
+  script:
+    - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - podman build -f build/podman-compose.containerfile -t "$CI_REGISTRY_IMAGE/podman-compose:$CI_COMMIT_SHORT_SHA-arm64" .
+    - podman push "$CI_REGISTRY_IMAGE/podman-compose:latest-arm64"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  tags:
+    - arm64
+
+tag-podman-compose-image:
+  stage: build
+  image: quay.io/podman/stable
+  script:
+    - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - podman pull $CI_REGISTRY_IMAGE/podman-compose:$CI_COMMIT_SHORT_SHA-amd64
+    - podman pull $CI_REGISTRY_IMAGE/podman-compose:$CI_COMMIT_SHORT_SHA-arm64
+    - podman manifest create $CI_REGISTRY_IMAGE/podman-compose:latest
+    - podman manifest push --all $CI_REGISTRY_IMAGE/podman-compose:latest
+  needs: 
+    - build-podman-compose-amd64-image
+    - build-podman-compose-arm64-image
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
