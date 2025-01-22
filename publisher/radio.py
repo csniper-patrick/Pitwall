@@ -85,15 +85,14 @@ async def connectLiveTiming():
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 channel, delta = msg["A"][0],  msg["A"][1]
-                                reference = redis_client.json().get(channel) 
-                                sessionInfo = redis_client.json().get("SessionInfo")
-                                reference = updateDictDelta(await reference, delta)
+                                reference = await redis_client.json().get(channel) 
+                                sessionInfo = await redis_client.json().get("SessionInfo")
+                                reference = updateDictDelta(reference or {}, delta)
                                 redis_client.json().set(channel, Path.root_path(), reference)
                                 # audio transcription
                                 captures = delta["Captures"]
                                 if type(captures) == dict:
                                     captures = [ capture for _, capture in captures.items() ]
-                                await sessionInfo
                                 for capture in captures:
                                     radioURL = reduce( urljoin, [staticUrl, sessionInfo['Path'], capture['Path']])
                                     print(radioURL)

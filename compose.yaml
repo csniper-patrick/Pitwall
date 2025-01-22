@@ -4,6 +4,7 @@ volumes:
 
 x-app-container: &app-container
   image: docker.io/csniper/pitwall:${TAG:-latest}
+  restart: unless-stopped
 
 x-publisher-app-container: &publisher-app-container
   <<: *app-container 
