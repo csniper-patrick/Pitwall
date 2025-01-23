@@ -26,4 +26,4 @@ build-pitwall-arm64-image:
     - ( podman pull "$CI_REGISTRY_IMAGE/pitwall:$CI_COMMIT_SHORT_SHA-arm64" &> /dev/hull ) || ( podman build -f build/pitwall.containerfile -t "$CI_REGISTRY_IMAGE/pitwall:$CI_COMMIT_SHORT_SHA-arm64" . && podman push "$CI_REGISTRY_IMAGE/pitwall:$CI_COMMIT_SHORT_SHA-arm64" )
   resource_group: build-pitwall-image-$CI_COMMIT_SHORT_SHA-arm64
   tags:
-    - arm64
+    - saas-linux-small-arm64
