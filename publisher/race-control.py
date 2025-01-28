@@ -63,14 +63,15 @@ async def connectLiveTiming():
                                     "DriverList",
                                     "WeatherData",
                                     "SessionInfo",
-                                    "DriverRaceInfo"
+                                    "SessionStatus",
+                                    "DriverRaceInfo", 
+                                    "LapCount"
                                 ]
                             ],
                             "I": 1,
                         }
                     )
                 )
-                verbose = os.getenv("VERBOSE") == "True"
                 while messages := json.loads(await sock.recv()):
                     # update data structure (full)
                     if "R" in messages:

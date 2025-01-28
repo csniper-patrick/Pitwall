@@ -68,7 +68,6 @@ async def connectLiveTiming():
                         }
                     )
                 )
-                verbose = os.getenv("VERBOSE") == "True"
                 while messages := json.loads(await sock.recv()):
                     # update data structure (full)
                     if "R" in messages:

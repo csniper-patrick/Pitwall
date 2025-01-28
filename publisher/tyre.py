@@ -60,13 +60,13 @@ async def connectLiveTiming():
                             "A": [
                                 [
                                     "TyreStintSeries",
+                                    "CurrentTyres"
                                 ]
                             ],
                             "I": 1,
                         }
                     )
                 )
-                verbose = os.getenv("VERBOSE") == "True"
                 while messages := json.loads(await sock.recv()):
                     # update data structure (full)
                     if "R" in messages:
@@ -79,7 +79,7 @@ async def connectLiveTiming():
                                 channel, delta = msg["A"][0],  msg["A"][1]
                                 reference = await redis_client.json().get(channel) 
                                 reference = updateDictDelta(reference or {}, delta)
-                                asyncio.create_task(redis_client.json().set(channel, Path.root_path(), reference))
+                                asyncio.create_task( redis_client.json().set(channel, Path.root_path(), reference) )
                                 # publish message
                                 asyncio.create_task( redis_client.publish(channel, json.dumps(delta)) )
 
