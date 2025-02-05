@@ -23,7 +23,7 @@ def load_config():
     
     DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")
     VER_TAG = os.getenv("VER_TAG", default="")
-    MSG_STYLE_PATH = os.getenv("MSG_STYLE_PATH", default="")
+    MSG_STYLE_PATH = os.getenv("MSG_STYLE_PATH", default="./style.json")
     msgStyle = {
         "flagColor": {
             "GREEN": 5763719,

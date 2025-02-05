@@ -1,0 +1,14 @@
+{
+	"flagSymbol":{ 
+		"CHEQUERED": ":checkered_flag:",
+		"BLACK": ":flag_black:",
+		"RED": ":triangular_flag_on_post:"
+	},
+	"compoundSymbol": {
+		"SOFT": ":red_circle:",
+		"MEDIUM": ":yellow_circle:",
+		"HARD": ":white_circle:",
+		"INTERMEDIATE": ":green_circle:",
+		"WET": ":blue_circle:"
+	}
+}
