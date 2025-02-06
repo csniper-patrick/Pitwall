@@ -18,7 +18,7 @@ build-podman-compose-arm64-image:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   tags:
-    - arm64
+    - saas-linux-small-arm64
 
 tag-podman-compose-image:
   stage: build
