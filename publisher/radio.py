@@ -45,12 +45,20 @@ def negotiate():
     except:
         print("error")
 
+async def captureHandler(redis_client, channel, transcriber, sessionInfo, capture):
+    radioURL = reduce( urljoin, [staticUrl, sessionInfo['Path'], capture['Path']])
+    print(radioURL)
+    radioFile = wget.download(radioURL)
+    transcribe = transcriber(radioFile)
+    capture['Message'] = transcribe
+    await redis_client.publish(channel, json.dumps({"Captures": [capture]}))
+    return
+
 async def connectLiveTiming():
+    model = os.getenv("WHISPERS_MODEL", default="distil-whisper/distil-small.en")
+    transcriber = pipeline("automatic-speech-recognition", model=model)
     while True:
         data, headers, params, additional_headers = negotiate()
-
-        model = os.getenv("WHISPERS_MODEL", default="distil-whisper/distil-small.en")
-        transcriber = pipeline("automatic-speech-recognition", model=model)
         
 		# connect to redis 
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
@@ -67,6 +75,7 @@ async def connectLiveTiming():
                             "M": "Subscribe",
                             "A": [
                                 [
+                                    "Heartbeat",
                                     "TeamRadio",
                                 ]
                             ],
@@ -84,6 +93,8 @@ async def connectLiveTiming():
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 channel, delta = msg["A"][0],  msg["A"][1]
+                                if channel == "Heartbeat":
+                                    continue
                                 reference = await redis_client.json().get(channel) 
                                 sessionInfo = await redis_client.json().get("SessionInfo")
                                 reference = updateDictDelta(reference or {}, delta)
@@ -93,13 +104,7 @@ async def connectLiveTiming():
                                 if type(captures) == dict:
                                     captures = [ capture for _, capture in captures.items() ]
                                 for capture in captures:
-                                    radioURL = reduce( urljoin, [staticUrl, sessionInfo['Path'], capture['Path']])
-                                    print(radioURL)
-                                    radioFile = wget.download(radioURL)
-                                    transcribe = transcriber(radioFile)
-                                    
-                                # publish message
-                                await redis_client.publish(channel, json.dumps(delta))
+                                    asyncio.create_task(captureHandler(redis_client, channel, transcriber, sessionInfo, capture))
 
             except Exception as error:
                 print(error)

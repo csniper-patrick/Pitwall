@@ -64,9 +64,9 @@ def negotiate():
         print("error")
 
 async def connectLiveTiming():
+    lastLapTimeDebouncer = {}
     while True:
         data, headers, params, additional_headers = negotiate()
-        lastLapTimeDebouncer = {}
 		# connect to redis 
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
         async with websockets.connect(
@@ -82,6 +82,7 @@ async def connectLiveTiming():
                             "M": "Subscribe",
                             "A": [
                                 [
+                                    "Heartbeat",
                                     "TimingDataF1"
                                 ]
                             ],
@@ -99,6 +100,8 @@ async def connectLiveTiming():
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 channel, delta = msg["A"][0],  msg["A"][1]
+                                if channel == "Heartbeat":
+                                    continue
                                 reference = await redis_client.json().get(channel) 
                                 reference = updateDictDelta(reference or {}, delta)
                                 asyncio.create_task(redis_client.json().set(channel, Path.root_path(), reference))

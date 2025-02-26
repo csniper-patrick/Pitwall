@@ -13,7 +13,7 @@ stages:
 include:
   - local: 'gitlab-ci.d/**.yml'
     rules:
-      - if: '$CI_PIPELINE_SOURCE != "schedule"'
+      - if: '$CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"'
   - local: 'gitlab-ci.d/scheduled-job.yml'
     rules:
       - if: '$CI_PIPELINE_SOURCE == "schedule"'
