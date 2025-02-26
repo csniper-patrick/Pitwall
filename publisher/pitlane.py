@@ -59,6 +59,7 @@ async def connectLiveTiming():
                             "M": "Subscribe",
                             "A": [
                                 [
+                                    "Heartbeat",
                                     "PitLaneTimeCollection",
                                     "PitStop", 
                                     "PitStopSeries",
@@ -78,6 +79,8 @@ async def connectLiveTiming():
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 channel, delta = msg["A"][0],  msg["A"][1]
+                                if channel == "Heartbeat":
+                                    continue
                                 reference = await redis_client.json().get(channel)
                                 match channel:
                                     case  "PitLaneTimeCollection":
