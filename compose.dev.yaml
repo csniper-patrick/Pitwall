@@ -91,3 +91,7 @@ services:
   tyre-discord:
     <<: *discord-dev-container
     command: /opt/entrypoint.sh discord/tyre.py
+
+  # radio-discord:
+  #   <<: *discord-dev-container
+  #   command: /opt/entrypoint.sh discord/radio.py

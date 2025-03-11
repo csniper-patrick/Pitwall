@@ -70,3 +70,7 @@ services:
   tyre-discord:
     <<: *discord-app-container
     command: discord/tyre.py
+  
+  # radio-discord:
+  #   <<: *discord-app-container
+  #   command: discord/radio.py
