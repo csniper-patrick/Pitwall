@@ -22,7 +22,7 @@ async def radioCaptureHandler(redis_client, discord, capture):
                 {
                     "title": "Team Radio",
                     "fields": [
-                        {"name": "Message", "value": message, "inline": True},
+                        {"name": "Message", "value": message['text'], "inline": True},
                     ],
                     "color": int(driverInfo['TeamColour'], 16),
                 }
