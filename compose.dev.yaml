@@ -72,9 +72,9 @@ services:
     <<: *publisher-dev-container
     command: /opt/entrypoint.sh publisher/telemetry.py
   
-  # radio-publisher:
-  #   <<: *publisher-dev-container
-  #   command: /opt/entrypoint.sh publisher/radio.py
+  radio-publisher:
+    <<: *publisher-dev-container
+    command: /opt/entrypoint.sh publisher/radio.py
   
   race-control-discord:
     <<: *discord-dev-container
@@ -92,6 +92,6 @@ services:
     <<: *discord-dev-container
     command: /opt/entrypoint.sh discord/tyre.py
 
-  # radio-discord:
-  #   <<: *discord-dev-container
-  #   command: /opt/entrypoint.sh discord/radio.py
+  radio-discord:
+    <<: *discord-dev-container
+    command: /opt/entrypoint.sh discord/radio.py

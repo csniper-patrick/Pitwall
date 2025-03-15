@@ -18,6 +18,8 @@ load_dotenv()
 
 USE_SSL, API_HOST, RETRY, livetimingUrl, websocketUrl, staticUrl, clientProtocol, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL = load_config()
 
+staticUrl = "https://livetiming.formula1.com/static/"
+
 def negotiate():
     connectionData = [{"name": "Streaming"}]
     try:
@@ -47,8 +49,9 @@ def negotiate():
 
 async def captureHandler(redis_client, channel, transcriber, sessionInfo, capture):
     radioURL = reduce( urljoin, [staticUrl, sessionInfo['Path'], capture['Path']])
-    print(radioURL)
+    # print(radioURL)
     radioFile = wget.download(radioURL)
+    # print(radioFile)
     transcribe = transcriber(radioFile)
     capture['Message'] = transcribe
     await redis_client.publish(channel, json.dumps({"Captures": [capture]}))

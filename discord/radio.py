@@ -20,9 +20,8 @@ async def radioCaptureHandler(redis_client, discord, capture):
             username=f"{driverInfo['BroadcastName']} - {capture['RacingNumber']}{VER_TAG}",
             embeds=[
                 {
-                    "title": "Team Radio",
                     "fields": [
-                        {"name": "Message", "value": message['text'], "inline": True},
+                        {"name": "Team Radio", "value": message['text'], "inline": True},
                     ],
                     "color": int(driverInfo['TeamColour'], 16),
                 }
