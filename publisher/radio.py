@@ -48,18 +48,24 @@ def negotiate():
         print("error")
 
 async def captureHandler(redis_client, channel, transcriber, sessionInfo, capture):
-    radioURL = reduce( urljoin, [staticUrl, sessionInfo['Path'], capture['Path']])
-    # print(radioURL)
-    radioFile = wget.download(radioURL)
-    # print(radioFile)
-    transcribe = transcriber(radioFile)
-    capture['Message'] = transcribe
-    await redis_client.publish(channel, json.dumps({"Captures": [capture]}))
+    try:
+        radioURL = reduce( urljoin, [staticUrl, sessionInfo['Path'], capture['Path']])
+        # print(radioURL)
+        radioFile = wget.download(radioURL)
+        # print(radioFile)
+        transcribe = transcriber(radioFile)
+        capture['Message'] = transcribe
+        await redis_client.publish(channel, json.dumps({"Captures": [capture]}))
+    except Exception as error:
+        print(error)
+    finally:
+        if os.path.exists(radioFile):
+            os.remove(radioFile)
     return
 
 async def connectLiveTiming():
-    model = os.getenv("WHISPERS_MODEL", default="distil-whisper/distil-small.en")
-    transcriber = pipeline("automatic-speech-recognition", model=model)
+    model = os.getenv("WHISPERS_MODEL", default="distil-whisper/distil-medium.en")
+    transcriber = pipeline("automatic-speech-recognition", model=model, return_timestamps=True)
     while True:
         data, headers, params, additional_headers = negotiate()
         
