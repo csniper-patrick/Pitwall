@@ -41,11 +41,11 @@ def negotiate():
         print("error")
 
 async def connectLiveTiming():
+    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
     while True:
         data, headers, params, additional_headers = negotiate()
         
 		# connect to redis 
-        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
         async with websockets.connect(
             f"{websocketUrl}/connect?{params}",
             additional_headers=additional_headers,
@@ -96,10 +96,7 @@ async def connectLiveTiming():
                 if RETRY:
                     continue
                 else:
-                    await redis_client.aclose()
                     break
-            finally:
-                await redis_client.aclose()
 
 if __name__ == "__main__":
     asyncio.run(connectLiveTiming())
