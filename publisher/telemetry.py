@@ -25,7 +25,7 @@ def negotiate():
                 "clientProtocol": clientProtocol,
             },
         )
-        print(res.json(), res.headers)
+        
         return res.json(), res.headers, urllib.parse.urlencode(
             {
                 "clientProtocol": 1.5,
@@ -39,8 +39,8 @@ def negotiate():
             "Cookie": res.headers["Set-Cookie"],
         }
         
-    except:
-        print("error")
+    except Exception as error:
+                print(error)
 
 async def connectLiveTiming():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)

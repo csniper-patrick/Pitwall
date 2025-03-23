@@ -30,7 +30,7 @@ def negotiate():
                 "clientProtocol": clientProtocol,
             },
         )
-        print(res.json(), res.headers)
+        
         return res.json(), res.headers, urllib.parse.urlencode(
             {
                 "clientProtocol": 1.5,
@@ -44,8 +44,8 @@ def negotiate():
             "Cookie": res.headers["Set-Cookie"],
         }
         
-    except:
-        print("error")
+    except Exception as error:
+                print(error)
 
 async def captureHandler(redis_client, channel, transcriber, sessionInfo, capture):
     try:
