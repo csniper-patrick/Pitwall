@@ -87,7 +87,7 @@ async def connectLiveTiming():
                                         if deleted := delta["PitTimes"].pop("_deleted", None) :
                                             for key in deleted:
                                                 reference["PitTimes"].pop(key, None)
-                                reference = updateDictDelta(reference, delta)
+                                reference = updateDictDelta(reference or {}, delta)
                                 asyncio.create_task(redis_client.json().set(channel, Path.root_path(), reference))
                                 # publish message
                                 asyncio.create_task( redis_client.publish(channel, json.dumps(delta)) )
