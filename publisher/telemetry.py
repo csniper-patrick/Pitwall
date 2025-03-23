@@ -40,7 +40,7 @@ def negotiate():
         }
         
     except Exception as error:
-                print(error)
+        print(error)
 
 async def connectLiveTiming():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)

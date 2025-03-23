@@ -61,7 +61,7 @@ def negotiate():
         }
         
     except Exception as error:
-                print(error)
+        print(error)
 
 async def connectLiveTiming():
     lastLapTimeDebouncer = {}

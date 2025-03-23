@@ -45,7 +45,7 @@ def negotiate():
         }
         
     except Exception as error:
-                print(error)
+        print(error)
 
 async def captureHandler(redis_client, channel, transcriber, sessionInfo, capture):
     try:
