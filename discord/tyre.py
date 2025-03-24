@@ -44,13 +44,17 @@ async def connectRedisChannel():
     discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
-        await pubsub.subscribe("TyreStintSeries")
+        await pubsub.subscribe("TyreStintSeries", "Heartbeat")
         async for payload in pubsub.listen() :
-            if payload["type"] == "message" :
-                stints = json.loads(payload["data"])["Stints"]
-                for raceNumber, delta in stints.items():
-                    if type(delta) == dict:
-                        asyncio.create_task(tyresStintSeriesHandler(redis_client, discord, raceNumber, delta))
+            match payload["channel"].decode("utf-8"):
+                case "TyreStintSeries":
+                    if payload["type"] == "message" :
+                        stints = json.loads(payload["data"])["Stints"]
+                        for raceNumber, delta in stints.items():
+                            if type(delta) == dict:
+                                asyncio.create_task(tyresStintSeriesHandler(redis_client, discord, raceNumber, delta))
+                case _ :
+                    continue
                     
 
 if __name__ == "__main__":

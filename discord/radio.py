@@ -34,12 +34,15 @@ async def connectRedisChannel():
     discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
-        await pubsub.subscribe("TeamRadio")
+        await pubsub.subscribe("TeamRadio", "Heartbeat")
         async for payload in pubsub.listen() :
             if payload["type"] == "message" :
-                for capture in json.loads(payload["data"])["Captures"]:
-                    asyncio.create_task(radioCaptureHandler(redis_client, discord, capture))
-                    
+                match payload["channel"].decode("utf-8"):
+                    case "TeamRadio":
+                        for capture in json.loads(payload["data"])["Captures"]:
+                            asyncio.create_task(radioCaptureHandler(redis_client, discord, capture))
+                    case _ :
+                        continue
 
 if __name__ == "__main__":
     asyncio.run(connectRedisChannel())

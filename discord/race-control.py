@@ -48,10 +48,14 @@ async def connectRedisChannel():
     discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
-        await pubsub.subscribe("RaceControlMessages")
+        await pubsub.subscribe("RaceControlMessages", "Heartbeat")
         async for payload in pubsub.listen() :
             if payload["type"] == "message" :
-                asyncio.create_task(raceControlMessageHandler(redis_client, discord, json.loads(payload["data"])))
+                match payload["channel"].decode("utf-8"):
+                    case "RaceControlMessages":
+                        asyncio.create_task(raceControlMessageHandler(redis_client, discord, json.loads(payload["data"])))
+                    case _ :
+                        continue
 
 if __name__ == "__main__":
     asyncio.run(connectRedisChannel())
