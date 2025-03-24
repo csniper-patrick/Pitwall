@@ -41,7 +41,7 @@ def negotiate():
         print(error)
 
 async def connectLiveTiming():
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
     while True:
         data, headers, params, additional_headers = negotiate()
         

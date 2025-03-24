@@ -140,7 +140,7 @@ async def timingDataF1Handler(redis_client, discord, raceNumber, delta):
 
 
 async def connectRedisChannel():
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
     discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
