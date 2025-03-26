@@ -45,7 +45,6 @@ async def raceControlMessageHandler(redis_client, discord, messages):
 
 async def connectRedisChannel():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
-    discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("RaceControlMessages", "Heartbeat")
@@ -53,7 +52,7 @@ async def connectRedisChannel():
             if payload["type"] == "message" :
                 match payload["channel"].decode("utf-8"):
                     case "RaceControlMessages":
-                        asyncio.create_task(raceControlMessageHandler(redis_client, discord, json.loads(payload["data"])))
+                        asyncio.create_task(raceControlMessageHandler(redis_client, Discord(url=DISCORD_WEBHOOK), json.loads(payload["data"])))
                     case _ :
                         continue
 

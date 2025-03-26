@@ -31,7 +31,6 @@ async def radioCaptureHandler(redis_client, discord, capture):
 
 async def connectRedisChannel():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
-    discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("TeamRadio", "Heartbeat")
@@ -40,7 +39,7 @@ async def connectRedisChannel():
                 match payload["channel"].decode("utf-8"):
                     case "TeamRadio":
                         for capture in json.loads(payload["data"])["Captures"]:
-                            asyncio.create_task(radioCaptureHandler(redis_client, discord, capture))
+                            asyncio.create_task(radioCaptureHandler(redis_client, Discord(url=DISCORD_WEBHOOK), capture))
                     case _ :
                         continue
 

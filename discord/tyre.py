@@ -41,7 +41,6 @@ async def tyresStintSeriesHandler(redis_client, discord, raceNumber, delta):
 
 async def connectRedisChannel():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
-    discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("TyreStintSeries", "Heartbeat")
@@ -52,7 +51,7 @@ async def connectRedisChannel():
                         stints = json.loads(payload["data"])["Stints"]
                         for raceNumber, delta in stints.items():
                             if type(delta) == dict:
-                                asyncio.create_task(tyresStintSeriesHandler(redis_client, discord, raceNumber, delta))
+                                asyncio.create_task(tyresStintSeriesHandler(redis_client, Discord(url=DISCORD_WEBHOOK), raceNumber, delta))
                 case _ :
                     continue
                     

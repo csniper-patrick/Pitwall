@@ -75,7 +75,6 @@ async def pitStopHandler(redis_client, discord, message):
 
 async def connectRedisChannel():
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
-    discord = Discord(url=DISCORD_WEBHOOK)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("PitLaneTimeCollection", "PitStop", "PitStopSeries")
@@ -85,10 +84,10 @@ async def connectRedisChannel():
                     case "PitLaneTimeCollection":
                         pitTimes=json.loads(payload["data"])["PitTimes"]
                         for raceNumber, delta in pitTimes.items():
-                            asyncio.create_task(pitLaneTimeCollectionHandler(redis_client, discord, raceNumber, delta))
+                            asyncio.create_task(pitLaneTimeCollectionHandler(redis_client, Discord(url=DISCORD_WEBHOOK), raceNumber, delta))
                     case "PitStop":
                         pitStop=json.loads(payload["data"])
-                        asyncio.create_task(pitStopHandler(redis_client, discord, pitStop))
+                        asyncio.create_task(pitStopHandler(redis_client, Discord(url=DISCORD_WEBHOOK), pitStop))
                     case _ :
                         continue
                     
