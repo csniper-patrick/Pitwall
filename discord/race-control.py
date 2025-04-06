@@ -4,12 +4,13 @@ import redis.asyncio as redis
 from dotenv import load_dotenv
 from utils import *
 from discordwebhook import Discord
+from typing import *
 
 load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
-async def raceControlMessageHandler(redis_client, discord, messages):
+async def raceControlMessageHandler(redis_client: redis.Redis, discord: Discord, messages: Dict[str, Any]) -> None:
     flagColor = msgStyle["flagColor"]
     flagSymbol = msgStyle["flagSymbol"]
     modeColor = msgStyle["modeColor"]
@@ -43,7 +44,7 @@ async def raceControlMessageHandler(redis_client, discord, messages):
             ],
         )
 
-async def connectRedisChannel():
+async def connectRedisChannel() -> None:
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:

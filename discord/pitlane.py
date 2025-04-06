@@ -6,6 +6,7 @@ from utils import *
 from discordwebhook import Discord
 from collections import defaultdict
 import re
+from typing import *
 
 load_dotenv()
 
@@ -18,7 +19,7 @@ with open('data/pit-time-stat.json', 'r') as file:
         pit_time_reference[circuit]['mean']=stat["mean"]
         pit_time_reference[circuit]['std']=stat["std"]
 
-async def pitLaneTimeCollectionHandler(redis_client, discord, raceNumber, delta):
+async def pitLaneTimeCollectionHandler(redis_client: redis.Redis, discord: Discord, raceNumber: str, delta: Dict[str, Any]) -> None:
     # get data from redis
     if "RacingNumber" not in delta or raceNumber != delta["RacingNumber"]:
         return
@@ -50,7 +51,7 @@ async def pitLaneTimeCollectionHandler(redis_client, discord, raceNumber, delta)
             ],
         )
 
-async def pitStopHandler(redis_client, discord, message):
+async def pitStopHandler(redis_client: redis.Redis, discord: Discord, message: Dict[str, Any]) -> None:
     sessionInfo = await redis_client.json().get("SessionInfo")
     if sessionInfo["Type"] not in ["Race", "Sprint"]:
         return
@@ -73,7 +74,7 @@ async def pitStopHandler(redis_client, discord, message):
     )
     return
 
-async def connectRedisChannel():
+async def connectRedisChannel() -> None:
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:

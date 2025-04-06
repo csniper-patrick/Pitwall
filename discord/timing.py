@@ -4,12 +4,13 @@ import redis.asyncio as redis
 from dotenv import load_dotenv
 from utils import *
 from discordwebhook import Discord
+from typing import *
 
 load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
-async def timingDataF1Handler(redis_client, discord, raceNumber, delta):
+async def timingDataF1Handler(redis_client: redis.Redis, discord: Discord, raceNumber: str, delta: Dict[str, Any]) -> None:
     # get data from redis
     sessionInfo = await redis_client.json().get("SessionInfo")
     timingDataF1 = (await redis_client.json().get("TimingDataF1"))["Lines"][raceNumber]
@@ -137,9 +138,7 @@ async def timingDataF1Handler(redis_client, discord, raceNumber, delta):
             avatar_url=driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
         )
 
-
-
-async def connectRedisChannel():
+async def connectRedisChannel() -> None:
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:

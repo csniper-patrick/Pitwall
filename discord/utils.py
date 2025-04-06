@@ -1,7 +1,8 @@
 import os
 import json
+from typing import *
 
-def updateDictDelta(obj, delta):
+def updateDictDelta(obj: Dict[str, Any], delta: Dict[str, Any]) -> Dict[str, Any]:
     for key, value in delta.items():
         if key not in obj:
             obj[key] = value
@@ -19,7 +20,7 @@ def updateDictDelta(obj, delta):
             obj[key] = value
     return obj
 
-def load_config():
+def load_config() -> Tuple[str, str, Dict[str, Any], str, int, str, bool]:
     
     DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")
     VER_TAG = os.getenv("VER_TAG", default="")
