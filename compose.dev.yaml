@@ -95,3 +95,7 @@ services:
   radio-discord:
     <<: *discord-dev-container
     command: /opt/entrypoint.sh discord/radio.py
+  
+  command-discord:
+    <<: *discord-dev-container
+    command: /opt/entrypoint.sh discord/command.py
