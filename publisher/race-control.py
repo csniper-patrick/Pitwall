@@ -66,7 +66,8 @@ async def connectLiveTiming():
                                     "SessionInfo",
                                     "SessionStatus",
                                     "DriverRaceInfo", 
-                                    "LapCount"
+                                    "LapCount",
+                                    "LapSeries"
                                 ]
                             ],
                             "I": 1,
