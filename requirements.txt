@@ -7,7 +7,7 @@ redis
 transformers
 wget
 torch
-
+accelerate
 discord.py
 fastf1
 pandas
