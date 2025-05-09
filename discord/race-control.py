@@ -48,7 +48,7 @@ async def connectRedisChannel() -> None:
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
-        await pubsub.subscribe("RaceControlMessages", "Heartbeat")
+        await pubsub.subscribe("RaceControlMessages")
         async for payload in pubsub.listen() :
             if payload["type"] == "message" :
                 match payload["channel"].decode("utf-8"):
