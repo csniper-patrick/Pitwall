@@ -25,12 +25,21 @@ class RaceEngineerGroup(app_commands.Group):
         super().__init__(name="race-engineer", description="Commands for the Race Engineer.")
         log.info("Race Engineer command group initialized.")
 
-    @app_commands.command(name="tyres", description="Placeholder: Check tyre status.")
+    @app_commands.command(name="tyres", description="Tyres Compound")
     async def tyres(self, interaction: discord.Interaction):
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
-        currentTyres = await redis_client.json().get("CurrentTyres")
-        sessionInfo = await redis_client.json().get("SessionInfo")
-        await interaction.response.send_message(json.dumps(currentTyres, indent=2), ephemeral=True)
+        TyreStintSeries = await redis_client.json().get("TyreStintSeries")
+        driverList = await redis_client.json().get("DriverList")
+        driver_current_stint = { driverList[RacingNumber]['BroadcastName']: stint[-1] for RacingNumber, stint in TyreStintSeries["Stints"].items() if len(stint) > 0 }
+        response = []
+        compounds = set([ stint["Compound"] for _, stint in driver_current_stint.items()])
+        for compound in compounds:
+            embed = discord.Embed(title=compound, color=msgStyle["compoundColor"][compound] if compound in msgStyle["compoundColor"] else None)
+            for driver, stint in driver_current_stint.items():
+                if stint["Compound"] == compound:
+                    embed.add_field(name=driver, value=stint["TotalLaps"], inline=True)
+            response.append(embed)
+        await interaction.response.send_message(embeds=response, ephemeral=True)
     
     @app_commands.command(name="weather", description="Track Weather")
     async def weather(self, interaction: discord.Interaction):
