@@ -36,7 +36,10 @@ class RaceEngineerGroup(app_commands.Group):
     async def weather(self, interaction: discord.Interaction):
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         weatherData = await redis_client.json().get("WeatherData")
-        await interaction.response.send_message(json.dumps(weatherData, indent=2), ephemeral=True)
+        response=discord.Embed(title="Track Weather")
+        for key, value in weatherData.items():
+            response.add_field(name=key, value=value, inline=True)
+        await interaction.response.send_message(embed=response, ephemeral=True)
     
     @app_commands.command(name="timing", description="Timing")
     async def timing(self, interaction: discord.Interaction):
