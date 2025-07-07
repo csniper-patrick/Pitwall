@@ -35,7 +35,7 @@ class RaceEngineerGroup(app_commands.Group):
         compounds = set([ stint["Compound"] for _, stint in driver_current_stint.items()])
         for compound in compounds:
             embed = discord.Embed(title=compound, color=msgStyle["compoundColor"][compound] if compound in msgStyle["compoundColor"] else None)
-            for driver, stint in driver_current_stint.items():
+            for driver, stint in sorted( driver_current_stint.items() , key=lambda item: item[1]["TotalLaps"]):
                 if stint["Compound"] == compound:
                     embed.add_field(name=driver, value=stint["TotalLaps"], inline=True)
             response.append(embed)
@@ -50,15 +50,32 @@ class RaceEngineerGroup(app_commands.Group):
             response.add_field(name=key, value=value, inline=True)
         await interaction.response.send_message(embed=response, ephemeral=True)
     
-    @app_commands.command(name="timing", description="Timing")
-    async def timing(self, interaction: discord.Interaction):
+    @app_commands.command(name="gap", description="Timing")
+    async def timing_gap(self, interaction: discord.Interaction):
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         timingDataF1 = await redis_client.json().get("TimingDataF1")
         sessionInfo = await redis_client.json().get("SessionInfo")
-        await interaction.response.send_message(json.dumps(timingDataF1, indent=2), ephemeral=True)
+        driverList = await redis_client.json().get("DriverList")
+        response=discord.Embed(title="Gap in Front")
+        for RacingNumber, timing in sorted(timingDataF1["Lines"].items(), key=lambda item: int(item[1]['Line']) ):
+            response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=timing["IntervalToPositionAhead"]['Value'], inline=False)
+            
+        await interaction.response.send_message(embed=response, ephemeral=True)
     
-    @app_commands.command(name="position", description="position")
-    async def position(self, interaction: discord.Interaction):
+    @app_commands.command(name="interval", description="Timing")
+    async def timing_interval(self, interaction: discord.Interaction):
+        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+        timingDataF1 = await redis_client.json().get("TimingDataF1")
+        sessionInfo = await redis_client.json().get("SessionInfo")
+        driverList = await redis_client.json().get("DriverList")
+        response=discord.Embed(title="Gap to Leader")
+        for RacingNumber, timing in sorted(timingDataF1["Lines"].items(), key=lambda item: int(item[1]['Line']) ):
+            response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=timing["GapToLeader"], inline=False)
+            
+        await interaction.response.send_message(embed=response, ephemeral=True)
+    
+    @app_commands.command(name="lap_time", description="lap_time")
+    async def lap_time(self, interaction: discord.Interaction):
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         timingDataF1 = await redis_client.json().get("TimingDataF1")
         lapSeries = await redis_client.json().get("LapSeries")
