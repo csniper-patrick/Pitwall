@@ -1,5 +1,5 @@
 x-dev-container: &dev-container
-  image: docker.io/library/python:3.12
+  image: docker.io/library/python:3.13
   volumes:
     - ./:/opt/
   command: sleep infinity
@@ -31,7 +31,7 @@ services:
         condition: service_started
 
   signalr:
-    image: docker.io/library/python:3.12
+    image: docker.io/library/python:3.13
     volumes:
       - ./mock-api/:/opt/
     env_file:
