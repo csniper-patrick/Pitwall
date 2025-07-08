@@ -59,7 +59,6 @@ async def connectLiveTiming():
                             "M": "Subscribe",
                             "A": [
                                 [
-                                    "Heartbeat",
                                     "RaceControlMessages",
                                     "DriverList",
                                     "WeatherData",
@@ -67,7 +66,8 @@ async def connectLiveTiming():
                                     "SessionStatus",
                                     "DriverRaceInfo", 
                                     "LapCount",
-                                    "LapSeries"
+                                    "LapSeries",
+                                    "TrackStatus"
                                 ]
                             ],
                             "I": 1,

@@ -84,7 +84,6 @@ async def connectLiveTiming():
                             "M": "Subscribe",
                             "A": [
                                 [
-                                    "Heartbeat",
                                     "TeamRadio",
                                 ]
                             ],
