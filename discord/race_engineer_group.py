@@ -119,10 +119,10 @@ class RaceEngineerGroup(app_commands.Group):
             # The data source for the gap differs by session type
             if sessionInfo["Type"] in ["Race", "Sprint"]:
                 # In a race, use the 'IntervalToPositionAhead' field
-                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"{timing["LastLapTime"]["Value"]} ({timing["IntervalToPositionAhead"]['Value']})", inline=False)
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["LastLapTime"]["Value"]} ({timing["IntervalToPositionAhead"]['Value']})`", inline=False)
             elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
                 # In qualifying, use the 'TimeDifftoPositionAhead' from the relevant session part (Q1/Q2/Q3)
-                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"{timing["BestLapTime"]["Value"]} ({ timing["Stats"][timingDataF1['SessionPart'] - 1 ]['TimeDifftoPositionAhead'] })", inline=False)
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["BestLapTime"]["Value"]} ({ timing["Stats"][timingDataF1['SessionPart'] - 1 ]['TimeDifftoPositionAhead'] })`", inline=False)
         await interaction.response.send_message(embed=response, ephemeral=True)
     
     @app_commands.command(name="interval", description="Shows the time interval for each driver to the race leader.")
@@ -144,10 +144,10 @@ class RaceEngineerGroup(app_commands.Group):
             # The data source for the interval differs by session type
             if sessionInfo["Type"] in ["Race", "Sprint"]:
                 # In a race, use the 'GapToLeader' field
-                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"{timing['LastLapTime']['Value']} ({timing['GapToLeader']})", inline=False)
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing['LastLapTime']['Value']} ({timing['GapToLeader']})`", inline=False)
             elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
                 # In qualifying, use 'TimeDiffToFastest' from the relevant session part (Q1/Q2/Q3)
-                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1 ]['TimeDiffToFastest']})", inline=False)
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1 ]['TimeDiffToFastest']})`", inline=False)
         await interaction.response.send_message(embed=response, ephemeral=True)
 
     

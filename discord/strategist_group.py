@@ -107,21 +107,34 @@ class StrategistGroup(app_commands.Group):
             log.error(f"Error executing '/strategist schedule': {e}", exc_info=True)
             await interaction.followup.send(f"❌ An error occurred while fetching the F1 schedule.")
 
-    @app_commands.command(name="trackmap", description="Displays the map for a specific F1 track.")
+    @app_commands.command(name="trackmap", description="Displays the track map for an event, or the next upcoming event.")
     @app_commands.autocomplete(event_name=event_autocomplete)
-    async def trackmap(self, interaction: discord.Interaction, event_name: str):
+    async def trackmap(self, interaction: discord.Interaction, event_name: Optional[str] = None):
         """Sends the specified track map image ephemerally."""
         log.info(f"Command '/strategist trackmap' invoked by {interaction.user} for event: {event_name}")
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         file_path = None
+        current_year = datetime.datetime.now().year
         error_message = None
 
         try:
-            current_year = datetime.datetime.now().year
-            log.info(f"Fetching event data for: {event_name}")
-            target_event = fastf1.get_event(current_year, event_name)
-
+            if event_name: 
+                # User specified an event name 
+                log.info(f"Fetching event data for: {event_name}")
+                target_event = fastf1.get_event(current_year, event_name)
+            else:
+                # No event name specified, find the next upcoming event
+                log.info("No specific event provided, finding next upcoming event.")
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                remaining_events = fastf1.get_events_remaining(include_testing=False)
+                if not remaining_events.empty:
+                    target_event = remaining_events.iloc[0]
+                    log.info(f"Found next upcoming event: {target_event['EventName']}")
+                else:
+                    log.warning(f"No upcoming races found for the {current_year} season after {now_utc}.")
+                    error_message = f"ℹ️ Couldn't find any upcoming F1 races scheduled for the rest of {current_year}."
+            
             if target_event.empty:
                  error_message = f"❌ Could not find event '{event_name}'. Please check the name."
             else:

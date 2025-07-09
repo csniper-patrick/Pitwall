@@ -51,6 +51,48 @@ client = discord.Client(intents=intents)
 # CommandTree is essential for registering and handling Slash Commands
 tree = app_commands.CommandTree(client)
 
+# --- Command Groups ---
+# Instantiate command groups to be used by the bot
+COMMAND_GROUPS = [
+    StrategistGroup(),
+    RaceEngineerGroup()
+]
+
+# --- Help Command ---
+@tree.command(name="pitwall-help", description="Shows a list of all available commands.")
+async def help_command(interaction: discord.Interaction):
+    """Displays a helpful message listing all commands."""
+    log.info(f"Command '/help' invoked by {interaction.user}")
+
+    embed = discord.Embed(
+        title="Pitwall Bot Commands",
+        description="Here are all the commands you can use with the Pitwall bot:",
+        color=discord.Color.blurple()
+    )
+
+    for group in COMMAND_GROUPS:
+        if isinstance(group, app_commands.Group):
+            # Format command names and descriptions for the embed
+            cmds = [f"`/{group.name} {cmd.name}`: {cmd.description}" for cmd in group.commands]
+            if cmds:
+                # Create a nice title from the group name (e.g., 'race-engineer' -> 'Race Engineer')
+                group_name_title = ' '.join(word.capitalize() for word in group.name.split('-'))
+                embed.add_field(
+                    name=f"{group_name_title} Commands",
+                    value="\n".join(cmds),
+                    inline=False
+                )
+
+    # Add the help command itself to the list
+    embed.add_field(
+        name="General Commands",
+        value="`/pitwall-help`: Shows this help message.",
+        inline=False
+    )
+
+    embed.set_footer(text="Use `/` to see all commands and their options in Discord.")
+    await interaction.response.send_message(embed=embed, ephemeral=False)
+
 # --- Bot Events ---
 @client.event
 async def on_ready():
@@ -60,9 +102,9 @@ async def on_ready():
     log.info(f'fastf1 version: {fastf1.__version__}')
     log.info('------')
 
-    # Add the imported command group instances to the command tree
-    tree.add_command(RaceEngineerGroup())
-    tree.add_command(StrategistGroup())
+    # Add the command groups to the command tree
+    for group in COMMAND_GROUPS:
+        tree.add_command(group)
     log.info("Command groups added to the command tree.")
 
     # Sync the command tree with Discord's servers to make slash commands appear.
