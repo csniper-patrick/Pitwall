@@ -90,10 +90,10 @@ class RaceEngineerGroup(app_commands.Group):
         trackStatus = await redis_client.json().get("TrackStatus")
 
         # Create a Discord embed to display the current track status (e.g., Green Flag, SC Deployed)
-        track_status=discord.Embed(title=f"Track Status - {trackStatus["Message"]}")
+        track_status=discord.Embed(title=f"Track Status - {trackStatus["Message"]}", color=discord.Color.blurple())
 
         # Create a separate Discord embed to display detailed weather information
-        track_weather=discord.Embed(title="Weather")
+        track_weather=discord.Embed(title="Weather", color=discord.Color.blurple())
         for key, value in weatherData.items():
             track_weather.add_field(name=key, value=value, inline=True)
 
@@ -110,7 +110,7 @@ class RaceEngineerGroup(app_commands.Group):
         active_driver = await get_active_driver()
 
         # Create an embed to show the gap to the car ahead for each driver
-        response=discord.Embed(title="Gap in Front")
+        response=discord.Embed(title="Gap in Front", color=discord.Color.blurple())
         # Iterate through drivers, sorted by their position on track
         for RacingNumber, timing in sorted(timingDataF1["Lines"].items(), key=lambda item: int(item[1]['Line']) ):
             if RacingNumber not in active_driver: 
@@ -135,7 +135,7 @@ class RaceEngineerGroup(app_commands.Group):
         active_driver = await get_active_driver()
 
         # Create an embed to show the interval to the leader for each driver
-        response=discord.Embed(title="Gap to Leader")
+        response=discord.Embed(title="Gap to Leader", color=discord.Color.blurple())
         # Iterate through drivers, sorted by their position on track
         for RacingNumber, timing in sorted(timingDataF1["Lines"].items(), key=lambda item: int(item[1]['Line']) ):
             if RacingNumber not in active_driver: 

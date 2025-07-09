@@ -1,6 +1,6 @@
 # Pitwall
 
-Pitwall is adiscord bot that connect to the [live timing API](https://livetiming.formula1.com/) endpoint, process and push live messages into channel of your choice. 
+Pitwall is a discord bot that connect to the [live timing API](https://livetiming.formula1.com/) endpoint, process and push live messages into channel of your choice. It also provide a handful of slash commands for on demand infomation. 
 
 Features:
 | Message type | Available Session type | Description |
@@ -19,6 +19,7 @@ Features:
 This is a continuation of the [Race Control Bot](https://gitlab.com/CSniper/race-control-bot) project. 
 
 ## Architecture
+Push message Architecture
 ```mermaid
 graph LR
     subgraph redis-stack
@@ -45,8 +46,29 @@ graph LR
     J --> M
     K --> M
     L --> M
+```
+
+Slash command Architecture
+```mermaid
+graph LR
+    M[discord channel]
+    subgraph live data
+        R{{redis}}
+    end
+    subgraph archived data
+        F{{fastf1}}
+    end
+    subgraph discord/command.py
+        E[class RaceEngineerGroup] <-- redis.get() --> R
+        S[class StrategistGroup] <-- query --> F
+    end
+    M -- slash command --> S
+    M -- slash command --> E
+    E -- response --> M
+    S -- response --> M
 
 ```
+
 ## Deployment
 Container image is published to dockerhub as [docker.io/csniper/pitwall](https://hub.docker.com/r/csniper/pitwall/tags). Please refer to `compose.yaml`, `publish.env.example`, `discord.env.example` for setting up the service using podman compose
 
