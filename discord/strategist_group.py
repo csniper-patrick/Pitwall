@@ -79,25 +79,35 @@ class StrategistGroup(app_commands.Group):
 
             # --- Send response ---
             if target_event is not None and not target_event.empty:
-                # Helper to format session times into Discord timestamps
-                def get_discord_timestamp(session_time_utc):
-                    if pd.isna(session_time_utc): return "N/A"
-                    unix_ts = int(session_time_utc.timestamp())
-                    return f"<t:{unix_ts}:F> (<t:{unix_ts}:R>)"
-
-                response_message = (
-                    f"📅 **F1 Event: {target_event['EventName']} (Round {target_event['RoundNumber']})**\n"
-                    f"📍 Location: {target_event['Location']}, {target_event['Country']}\n\n"
-                    f"🗓️ **Schedule (Displayed in your local time):**\n"
-                    f" L: {get_discord_timestamp(target_event.get('Session1Date'))} - {target_event['Session1']}\n"
-                    f" L: {get_discord_timestamp(target_event.get('Session2Date'))} - {target_event['Session2']}\n"
-                    f" L: {get_discord_timestamp(target_event.get('Session3Date'))} - {target_event['Session3']}\n"
-                    f" L: {get_discord_timestamp(target_event.get('Session4Date'))} - {target_event['Session4']}\n"
-                    f" L: **{get_discord_timestamp(target_event.get('Session5Date'))}** - {target_event['Session5']}\n\n"
-                    f"*Note: Session names might differ for Sprint weekends.*"
+                # Create an embed for the schedule
+                embed = discord.Embed(
+                    title=f"📅 F1 Event: {target_event['EventName']} (Round {target_event['RoundNumber']})",
+                    description=f"📍 Location: {target_event['Location']}, {target_event['Country']}",
+                    color=discord.Color.blurple()
                 )
+
+                # Find all valid sessions first
+                sessions = []
+                for i in range(1, 6):
+                    session_name = target_event.get(f'Session{i}')
+                    session_date = target_event.get(f'Session{i}Date')
+                    if session_name and pd.notna(session_date):
+                        sessions.append({'name': session_name, 'date': session_date})
+
+                # Add each session as a separate field in the embed
+                if sessions:
+                    for idx, session in enumerate(sessions):
+                        unix_ts = int(session['date'].timestamp())
+                        timestamp_str = f"<t:{unix_ts}:d> <t:{unix_ts}:t> (<t:{unix_ts}:R>)"
+
+                        # Bold the name of the last session (usually the Race)
+                        is_last_session = (idx == len(sessions) - 1)
+                        field_name = f"**{session['name']}**" if is_last_session else session['name']
+                        embed.add_field(name=field_name, value=timestamp_str, inline=False)
+
+                embed.set_footer(text="Note: Displayed in your local time. Session names might differ for Sprint weekends.")
                 log.info(f"Sending schedule for {target_event['EventName']} to {interaction.user}")
-                await interaction.followup.send(response_message)
+                await interaction.followup.send(embed=embed)
             elif error_message:
                 await interaction.followup.send(error_message)
             else:
