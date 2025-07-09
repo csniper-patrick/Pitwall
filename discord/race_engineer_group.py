@@ -33,12 +33,12 @@ async def get_active_driver():
     if sessionInfo["Type"] in ["Race", "Sprint"]:
         
         # Filter out drivers who have retired
-        active_line = dict(filter(lambda item: item[1]["Retired"] == False, timingDataF1["Lines"].items()))
+        active_line = dict(filter(lambda item: item[1]["Retired"] == False and item[1]["ShowPosition"] == True , timingDataF1["Lines"].items()))
         return [ RacingNumber for RacingNumber, _ in active_line.items() ]
     elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
         
         # Filter out drivers who have been knocked out
-        active_line = dict(filter(lambda item: item[1]["KnockedOut"] == False, timingDataF1["Lines"].items()))
+        active_line = dict(filter(lambda item: item[1]["KnockedOut"] == False and item[1]["ShowPosition"] == True , timingDataF1["Lines"].items()))
         return [ RacingNumber for RacingNumber, _ in active_line.items() ]
     else:
         
