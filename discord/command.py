@@ -62,12 +62,20 @@ COMMAND_GROUPS = [
 @tree.command(name="pitwall-help", description="Shows a list of all available commands.")
 async def help_command(interaction: discord.Interaction):
     """Displays a helpful message listing all commands."""
-    log.info(f"Command '/help' invoked by {interaction.user}")
+    log.info(f"Command '/pitwall-help' invoked by {interaction.user}")
 
     embed = discord.Embed(
         title="Pitwall Bot Commands",
         description="Here are all the commands you can use with the Pitwall bot:",
         color=discord.Color.blurple()
+    )
+
+    # Add the help command itself to the list
+    embed.add_field(
+        name="General Commands",
+        value="`/pitwall-help`: Shows this help message.\n"
+            "Output of all the following commands are only visible to you",
+        inline=False
     )
 
     for group in COMMAND_GROUPS:
@@ -83,10 +91,12 @@ async def help_command(interaction: discord.Interaction):
                     inline=False
                 )
 
-    # Add the help command itself to the list
+    # Add a field for project contribution
     embed.add_field(
-        name="General Commands",
-        value="`/pitwall-help`: Shows this help message.",
+        name="❤️ Support & Contribute",
+        value="Pitwall is an open-source project! If you find it useful, please consider starring the project or contributing with code\n"
+              "- [GitLab - Pitwall](https://gitlab.com/CSniper/pitwall)\n"
+              "- [GitHub - Pitwall](https://github.com/csniper-patrick/Pitwall)\n",
         inline=False
     )
 
