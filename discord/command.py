@@ -65,7 +65,7 @@ async def help_command(interaction: discord.Interaction):
     log.info(f"Command '/pitwall-help' invoked by {interaction.user}")
 
     embed = discord.Embed(
-        title="Pitwall Bot Commands",
+        title="Pitwall Commands",
         description="Here are all the commands you can use with the Pitwall bot:",
         color=discord.Color.blurple()
     )
@@ -73,7 +73,7 @@ async def help_command(interaction: discord.Interaction):
     # Add the help command itself to the list
     embed.add_field(
         name="General Commands",
-        value="`/pitwall-help`: Shows this help message.\n"
+        value="`/pitwall-help`: Shows this help message.\n\n"
             "Output of all the following commands are only visible to you",
         inline=False
     )
@@ -81,7 +81,7 @@ async def help_command(interaction: discord.Interaction):
     for group in COMMAND_GROUPS:
         if isinstance(group, app_commands.Group):
             # Format command names and descriptions for the embed
-            cmds = [f"`/{group.name} {cmd.name}`: {cmd.description}" for cmd in group.commands]
+            cmds = [f"`/{group.name} {cmd.name}`: {cmd.description}\n" for cmd in group.commands]
             if cmds:
                 # Create a nice title from the group name (e.g., 'race-engineer' -> 'Race Engineer')
                 group_name_title = ' '.join(word.capitalize() for word in group.name.split('-'))
@@ -93,10 +93,10 @@ async def help_command(interaction: discord.Interaction):
 
     # Add a field for project contribution
     embed.add_field(
-        name="❤️ Support & Contribute",
+        name="❤️ Support & 💪🏻Contribute",
         value="Pitwall is an open-source project! If you find it useful, please consider starring the project or contributing with code\n"
               "- [GitLab - Pitwall](https://gitlab.com/CSniper/pitwall)\n"
-              "- [GitHub - Pitwall](https://github.com/csniper-patrick/Pitwall)\n",
+              "- [GitHub - Pitwall(mirror)](https://github.com/csniper-patrick/Pitwall)\n",
         inline=False
     )
 
