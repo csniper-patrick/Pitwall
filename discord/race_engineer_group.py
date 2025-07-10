@@ -175,7 +175,7 @@ class RaceEngineerGroup(app_commands.Group):
             # For races, show last lap time and interval to the car ahead
             response=discord.Embed(title="Gap to Leader", color=discord.Color.blurple())
             for RacingNumber, timing in driver_timing:
-                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["LastLapTime"]["Value"]} ({timing["GapToLeader"]['Value']})`", inline=False)
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["LastLapTime"]["Value"]} ({timing["GapToLeader"]})`", inline=False)
             await interaction.response.send_message(embeds=[response], ephemeral=True)
         
         elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
