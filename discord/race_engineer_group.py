@@ -100,8 +100,8 @@ class RaceEngineerGroup(app_commands.Group):
         # Send both embeds in a single response
         await interaction.response.send_message(embeds=[track_status, track_weather], ephemeral=True)
     
-    @app_commands.command(name="gap", description="Shows the time gap for each driver to the car directly in front.")
-    async def timing_gap(self, interaction: discord.Interaction):
+    @app_commands.command(name="gap_in_front", description="Shows each driver's lap time and gap to the car ahead.")
+    async def timing_gap_in_front(self, interaction: discord.Interaction):
         # Fetch timing, driver, and session data from Redis
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         timingDataF1 = await redis_client.json().get("TimingDataF1")
@@ -109,24 +109,55 @@ class RaceEngineerGroup(app_commands.Group):
         sessionInfo = await redis_client.json().get("SessionInfo")
         active_driver = await get_active_driver()
 
-        # Create an embed to show the gap to the car ahead for each driver
-        response=discord.Embed(title="Gap in Front", color=discord.Color.blurple())
-        # Iterate through drivers, sorted by their position on track
-        for RacingNumber, timing in sorted(timingDataF1["Lines"].items(), key=lambda item: int(item[1]['Line']) ):
-            if RacingNumber not in active_driver: 
-                continue
-            
-            # The data source for the gap differs by session type
-            if sessionInfo["Type"] in ["Race", "Sprint"]:
-                # In a race, use the 'IntervalToPositionAhead' field
+        # Filter timing data to include only active drivers
+        driver_timing = { key: value for key, value in timingDataF1["Lines"].items() if key in active_driver }
+        # Sort the active drivers by their position on the timing screen ('Line')
+        driver_timing = list(sorted(driver_timing.items(), key=lambda item: int(item[1]['Line']) ))
+
+        # The data displayed depends on the type of session
+        if sessionInfo["Type"] in ["Race", "Sprint"]:
+            # For races, show last lap time and interval to the car ahead
+            response=discord.Embed(title="Gap in Front", color=discord.Color.blurple())
+            for RacingNumber, timing in driver_timing:
                 response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["LastLapTime"]["Value"]} ({timing["IntervalToPositionAhead"]['Value']})`", inline=False)
-            elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
-                # In qualifying, use the 'TimeDifftoPositionAhead' from the relevant session part (Q1/Q2/Q3)
+            await interaction.response.send_message(embeds=[response], ephemeral=True)
+        
+        elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
+            # For qualifying, show best lap time and gap. Also separate drivers at risk of elimination.
+            response=discord.Embed(title="Gap in Front", color=discord.Color.blurple())
+            
+            # Determine the cutoff position for the current part of qualifying (Q1/Q2/Q3)
+            limit = (timingDataF1["NoEntries"] + [100] * 10)[timingDataF1['SessionPart']]
+            
+            # Split drivers into those who are advancing and those at risk
+            driver_adv=driver_timing[:limit]
+            driver_at_risk=driver_timing[limit:]
+
+            # Create embed fields for drivers who are currently safe
+            for RacingNumber, timing in driver_adv:
                 response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["BestLapTime"]["Value"]} ({ timing["Stats"][timingDataF1['SessionPart'] - 1 ]['TimeDifftoPositionAhead'] })`", inline=False)
-        await interaction.response.send_message(embed=response, ephemeral=True)
+            
+            # If there are drivers at risk, create a separate embed for them
+            if len(driver_at_risk) > 0:
+                at_risk=discord.Embed(title="At Risk", color=discord.Color.red())
+                for RacingNumber, timing in driver_timing[limit:]:
+                    at_risk.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["BestLapTime"]["Value"]} ({ timing["Stats"][timingDataF1['SessionPart'] - 1 ]['TimeDifftoPositionAhead'] })`", inline=False)
+                await interaction.response.send_message(embeds=[response, at_risk], ephemeral=True)
+            else:
+                # If no one is at risk, just send the main embed
+                await interaction.response.send_message(embeds=[response], ephemeral=True)
+            
+        else:
+            # For other sessions (e.g., Practice), show best lap time and gap to car ahead
+            response=discord.Embed(title="Gap in Front", color=discord.Color.blurple())
+            for RacingNumber, timing in driver_timing:
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["BestLapTime"]["Value"]} ({ timing['TimeDifftoPositionAhead'] })`", inline=False)
+            await interaction.response.send_message(embeds=[response], ephemeral=True)
+
+
     
-    @app_commands.command(name="interval", description="Shows the time interval for each driver to the race leader.")
-    async def timing_interval(self, interaction: discord.Interaction):
+    @app_commands.command(name="gap_to_lead", description="Shows each driver's lap time and gap to the session leader.")
+    async def timing_gap_to_lead(self, interaction: discord.Interaction):
         # Fetch timing, driver, and session data from Redis
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         timingDataF1 = await redis_client.json().get("TimingDataF1")
@@ -134,21 +165,51 @@ class RaceEngineerGroup(app_commands.Group):
         sessionInfo = await redis_client.json().get("SessionInfo")
         active_driver = await get_active_driver()
 
-        # Create an embed to show the interval to the leader for each driver
-        response=discord.Embed(title="Gap to Leader", color=discord.Color.blurple())
-        # Iterate through drivers, sorted by their position on track
-        for RacingNumber, timing in sorted(timingDataF1["Lines"].items(), key=lambda item: int(item[1]['Line']) ):
-            if RacingNumber not in active_driver: 
-                continue
+        # Filter timing data to include only active drivers
+        driver_timing = { key: value for key, value in timingDataF1["Lines"].items() if key in active_driver }
+        # Sort the active drivers by their position on the timing screen ('Line')
+        driver_timing = list(sorted(driver_timing.items(), key=lambda item: int(item[1]['Line']) ))
+
+        # The data displayed depends on the type of session
+        if sessionInfo["Type"] in ["Race", "Sprint"]:
+            # For races, show last lap time and interval to the car ahead
+            response=discord.Embed(title="Gap to Leader", color=discord.Color.blurple())
+            for RacingNumber, timing in driver_timing:
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["LastLapTime"]["Value"]} ({timing["GapToLeader"]['Value']})`", inline=False)
+            await interaction.response.send_message(embeds=[response], ephemeral=True)
+        
+        elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
+            # For qualifying, show best lap time and gap. Also separate drivers at risk of elimination.
+            response=discord.Embed(title="Gap to Leader", color=discord.Color.blurple())
             
-            # The data source for the interval differs by session type
-            if sessionInfo["Type"] in ["Race", "Sprint"]:
-                # In a race, use the 'GapToLeader' field
-                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing['LastLapTime']['Value']} ({timing['GapToLeader']})`", inline=False)
-            elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
-                # In qualifying, use 'TimeDiffToFastest' from the relevant session part (Q1/Q2/Q3)
-                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1 ]['TimeDiffToFastest']})`", inline=False)
-        await interaction.response.send_message(embed=response, ephemeral=True)
+            # Determine the cutoff position for the current part of qualifying (Q1/Q2/Q3)
+            limit = (timingDataF1["NoEntries"] + [100] * 10)[timingDataF1['SessionPart']]
+            
+            # Split drivers into those who are advancing and those at risk
+            driver_adv=driver_timing[:limit]
+            driver_at_risk=driver_timing[limit:]
+
+            # Create embed fields for drivers who are currently safe
+            for RacingNumber, timing in driver_adv:
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["BestLapTime"]["Value"]} ({ timing["Stats"][timingDataF1['SessionPart'] - 1 ]['TimeDiffToFastest'] })`", inline=False)
+            
+            # If there are drivers at risk, create a separate embed for them
+            if len(driver_at_risk) > 0:
+                at_risk=discord.Embed(title="At Risk", color=discord.Color.red())
+                for RacingNumber, timing in driver_timing[limit:]:
+                    at_risk.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["BestLapTime"]["Value"]} ({ timing["Stats"][timingDataF1['SessionPart'] - 1 ]['TimeDiffToFastest'] })`", inline=False)
+                await interaction.response.send_message(embeds=[response, at_risk], ephemeral=True)
+            else:
+                # If no one is at risk, just send the main embed
+                await interaction.response.send_message(embeds=[response], ephemeral=True)
+            
+        else:
+            # For other sessions (e.g., Practice), show best lap time and gap to car ahead
+            response=discord.Embed(title="Gap to Leader", color=discord.Color.blurple())
+            for RacingNumber, timing in driver_timing:
+                response.add_field(name=driverList[RacingNumber]['BroadcastName'], value=f"`{timing["BestLapTime"]["Value"]} ({ timing['TimeDiffToFastest'] })`", inline=False)
+            await interaction.response.send_message(embeds=[response], ephemeral=True)
+
 
     
     
