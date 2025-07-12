@@ -11,3 +11,6 @@ accelerate
 discord.py
 fastf1
 pandas
+numpy
+matplotlib
+matplotlib-label-lines

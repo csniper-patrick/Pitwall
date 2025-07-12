@@ -6,6 +6,14 @@ from discord import app_commands
 import redis.asyncio as redis
 from dotenv import load_dotenv
 import logging
+import io
+
+# plotting tools
+import matplotlib.pyplot as plt
+import matplotlib.style as style
+import fastf1.plotting
+from labellines import labelLines
+
 from utils import *
 
 # Get a logger instance for this module
@@ -14,6 +22,8 @@ log = logging.getLogger(__name__)
 load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
+
+fastf1.plotting.setup_mpl(color_scheme='fastf1')
 
 async def get_active_driver():
     """
@@ -211,5 +221,46 @@ class RaceEngineerGroup(app_commands.Group):
             await interaction.response.send_message(embeds=[response], ephemeral=True)
 
 
-    
-    
+    @app_commands.command(name="position", description="Shows each driver's position change in race.")
+    async def position(self, interaction: discord.Interaction):
+        # Fetch timing, driver, and session data from Redis
+        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+        driverList = await redis_client.json().get("DriverList")
+        sessionInfo = await redis_client.json().get("SessionInfo")
+        lapSeries = await redis_client.json().get("LapSeries")
+
+        if sessionInfo["Type"] not in ["Race", "Sprint"]:
+            await interaction.response.send_message("Not a Race session", ephemeral=True)
+            return
+        fig, ax = plt.subplots(figsize=(12.0, 6.0))
+
+        driver_style ={key: {'color': f"#{info['TeamColour']}", 'linestyle': ['solid', 'dashed'][idx%2]} for idx, (key, info) in enumerate(sorted( driverList.items(), key=lambda item: item[1]['TeamColour'] ))}
+
+        xvals=[]
+        for drv, info in sorted(driverList.items(), key=lambda item: item[1]['TeamName']):
+            style = driver_style[drv]
+            lap_no = [ i for i in range(len(lapSeries[drv]['LapPosition'])) ]
+            lap_pos = [ int(i) for i in lapSeries[drv]['LapPosition'] ]
+            xvals.append(max(lap_no))
+            ax.plot(lap_no, lap_pos,
+                    label=info['Tla'], **style)
+
+        ax.set_ylim([len(driver_style.items())+1, 0])
+        ax.set_yticks([1, 5, 10, 15, 20])
+        ax.set_xlabel('LAP')
+        ax.set_ylabel('POS')
+        
+        fig.tight_layout()
+        labelLines(ax.get_lines(), align=False, xvals=xvals)
+
+        # files operation
+        bio = io.BytesIO()
+        fig.savefig(bio, format="png")
+        attachment = discord.File(bio, filename="position.png")
+        bio.seek(0)
+        # fig.savefig("plot.png")
+        # image = discord.File("plot.png")
+        
+        # await interaction.followup.send(file=image, ephemeral=True)
+        await interaction.response.send_message(file=attachment, ephemeral=True)
+        return
