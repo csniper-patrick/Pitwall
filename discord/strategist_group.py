@@ -17,11 +17,11 @@ import datetime
 import seaborn as sns
 import io
 import redis.asyncio as redis
+from utils import *
 
 # Get a logger instance for this module
 log = logging.getLogger(__name__)
 
-from utils import *
 load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
@@ -251,7 +251,7 @@ class StrategistGroup(app_commands.Group):
 
         # --- Data Aggregation & Cleaning ---
         # Get a list of driver numbers, sorted by their current position on the timing screen.
-        drivers = [ key for key, _ in sorted( driverList.items(), key=lambda item: item[1]['Line'] )]
+        drivers = [ key for key, _ in sorted( driverList.items(), key=lambda item: int(item[1]['Line']) )]
 
         # For each session, get all valid laps for the specified drivers.
         # - pick_not_deleted(): Excludes laps invalidated by race control.
@@ -259,9 +259,7 @@ class StrategistGroup(app_commands.Group):
         # - pick_accurate(): Excludes laps with inaccurate timing data.
         driver_laps_per_session = [
             session.laps.pick_drivers(drivers)
-            .pick_not_deleted()
             .pick_wo_box()
-            .pick_accurate()
             for session in session_list
         ]
         # Combine the laps from all sessions into a single pandas DataFrame.
@@ -288,7 +286,7 @@ class StrategistGroup(app_commands.Group):
                     density_norm="area", # Ensures violins have the same area.
                     order=driver_order,
                     palette=fastf1.plotting.get_driver_color_mapping(session=session_list[-1])
-                    )
+                )
 
         # 2. Overlay a swarm plot to show each individual lap.
         #    Each point is colored by the tyre compound used for that lap.
@@ -300,7 +298,7 @@ class StrategistGroup(app_commands.Group):
                     hue_order=["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"], # Fixed compound order
                     linewidth=0,
                     size=3,
-                    )
+                )
         
         # --- Final Touches & Sending ---
         # Save the generated plot to an in-memory binary stream (BytesIO).
