@@ -205,7 +205,9 @@ class StrategistGroup(app_commands.Group):
         # This is used to identify the year, event, and which sessions have been completed.
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         driverList = await redis_client.json().get("DriverList")
+        driverList.pop("_kf", None)
         sessionInfo = await redis_client.json().get("SessionInfo")
+        sessionInfo.pop("_kf", None)
 
         # --- Historical Session Identification ---
         # Map F1 session names to the corresponding session number used by FastF1.
