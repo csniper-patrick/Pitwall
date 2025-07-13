@@ -14,3 +14,4 @@ pandas
 numpy
 matplotlib
 matplotlib-label-lines
+seaborn

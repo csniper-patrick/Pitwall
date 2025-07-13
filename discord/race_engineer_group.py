@@ -293,12 +293,12 @@ class RaceEngineerGroup(app_commands.Group):
         # --- File Generation & Sending ---
         # Save the generated plot to an in-memory binary stream (BytesIO).
         bio = io.BytesIO()
-        fig.savefig(bio, format="png")
+        fig.savefig(bio, dpi=700, format="png")
         # Reset the stream's position to the beginning.
         bio.seek(0)
         # Create a discord.File object from the stream.
         attachment = discord.File(bio, filename="position.png")
         
         # Send the file as a response to the interaction.
-        await interaction.response.send_message(file=attachment, ephemeral=True)
+        await interaction.followup.send(file=attachment)
         return

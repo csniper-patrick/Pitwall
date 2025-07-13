@@ -7,10 +7,26 @@ import fastf1
 import datetime
 import logging
 import pandas as pd
+from dotenv import load_dotenv
 from typing import Optional
+import matplotlib.pyplot as plt
+import matplotlib.style as style
+import fastf1.plotting
+from labellines import labelLines
+import datetime
+import seaborn as sns
+import io
+import redis.asyncio as redis
 
 # Get a logger instance for this module
 log = logging.getLogger(__name__)
+
+from utils import *
+load_dotenv()
+
+DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
+
+fastf1.plotting.setup_mpl(color_scheme='fastf1')
 
 # This directory constant is needed for the trackmap command
 TRACKS_DIR = "data/tracks"
@@ -173,3 +189,126 @@ class StrategistGroup(app_commands.Group):
                 await interaction.followup.send("❌ An error occurred while sending the track map image.")
         elif error_message:
             await interaction.followup.send(error_message)
+
+    @app_commands.command(name="pace", description="Generates a violin plot of lap times from all completed sessions for the current event.")
+    async def pace(self, interaction: discord.Interaction):
+        """
+        Generates and sends a violin plot illustrating the pace distribution
+        of each driver across all completed sessions of the current event.
+        Each point on the plot represents a valid lap, colored by the tyre
+        compound used.
+        """
+        log.info(f"Command '/strategist pace' invoked by {interaction.user}")
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        # --- Live Data Fetching ---
+        # Connect to Redis to get information about the *current* live session.
+        # This is used to identify the year, event, and which sessions have been completed.
+        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+        driverList = await redis_client.json().get("DriverList")
+        sessionInfo = await redis_client.json().get("SessionInfo")
+
+        # --- Historical Session Identification ---
+        # Map F1 session names to the corresponding session number used by FastF1.
+        # This allows us to dynamically load the correct historical data.
+        session_number_mapping = {
+            "Practice 1": 1,
+            "Practice 2": 2,
+            "Practice 3": 3, 
+            "Day 1": 1,
+            "Day 2": 2,
+            "Day 3": 3,
+            "Sprint Qualifying": 2,
+            "Sprint": 3,
+            "Qualifying": 4,
+            "Race": 5
+
+        }
+        # Determine the parameters for fetching historical data from FastF1.
+        # It figures out the year, event number, and the latest completed session.
+        # If the current session is not yet 'Complete', it subtracts 1 to only plot completed sessions.
+        session_idx ={
+            'year': datetime.datetime.strptime(sessionInfo['StartDate'], '%Y-%m-%dT%H:%M:%S').year,
+            'event': sessionInfo['Meeting']['Number'],
+            'session': session_number_mapping[sessionInfo['Name']] - int( "Complete" != sessionInfo['ArchiveStatus']['Status'] )
+        }
+        
+        # --- Historical Data Loading ---
+        # Create a list of all completed FastF1 session objects for the current event.
+        session_list = [
+            fastf1.get_session(session_idx['year'], session_idx['event'], i)
+            for i in range(1, 1 + session_idx['session'])
+        ]
+
+        # Load the data for each session. This can be time-consuming.
+        for session in session_list:
+            session.load()
+
+        if len(session_list) == 0:
+            await interaction.followup.send(content="No completed sessions available to generate a pace plot.")
+            return
+
+        # --- Data Aggregation & Cleaning ---
+        # Get a list of driver numbers, sorted by their current position on the timing screen.
+        drivers = [ key for key, _ in sorted( driverList.items(), key=lambda item: item[1]['Line'] )]
+
+        # For each session, get all valid laps for the specified drivers.
+        # - pick_not_deleted(): Excludes laps invalidated by race control.
+        # - pick_wo_box(): Excludes in-laps and out-laps.
+        # - pick_accurate(): Excludes laps with inaccurate timing data.
+        driver_laps_per_session = [
+            session.laps.pick_drivers(drivers)
+            .pick_not_deleted()
+            .pick_wo_box()
+            .pick_accurate()
+            for session in session_list
+        ]
+        # Combine the laps from all sessions into a single pandas DataFrame.
+        driver_laps = pd.concat(driver_laps_per_session)
+        driver_laps = driver_laps.reset_index()
+
+        # --- Plotting Setup ---
+        # Determine the order of drivers on the x-axis based on their abbreviation.
+        # This ensures the plot is ordered logically (e.g., by team or finishing position).
+        driver_order = [session_list[-1].get_driver(i)["Abbreviation"] for i in drivers]
+
+        # Initialize the matplotlib figure and axes.
+        fig, ax = plt.subplots(figsize=(21, 9))
+        fig.tight_layout()
+
+        # Convert the 'LapTime' (timedelta) to total seconds for plotting on a numeric axis.
+        driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
+
+        # --- Plotting ---
+        # 1. Create the violin plot to show the distribution of lap times for each driver.
+        sns.violinplot(data=driver_laps,
+                    x="Driver", y="LapTime(s)", hue="Driver",
+                    inner=None, # Hides the inner box/stick plot inside the violin.
+                    density_norm="area", # Ensures violins have the same area.
+                    order=driver_order,
+                    palette=fastf1.plotting.get_driver_color_mapping(session=session_list[-1])
+                    )
+
+        # 2. Overlay a swarm plot to show each individual lap.
+        #    Each point is colored by the tyre compound used for that lap.
+        sns.swarmplot(data=driver_laps,
+                    x="Driver", y="LapTime(s)",
+                    order=driver_order,
+                    hue="Compound",
+                    palette=fastf1.plotting.get_compound_mapping(session=session_list[-1]),
+                    hue_order=["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"], # Fixed compound order
+                    linewidth=0,
+                    size=3,
+                    )
+        
+        # --- Final Touches & Sending ---
+        # Save the generated plot to an in-memory binary stream (BytesIO).
+        bio = io.BytesIO()
+        fig.savefig(bio, dpi=600, format="png")
+        # Reset the stream's position to the beginning before reading.
+        bio.seek(0)
+        # Create a discord.File object from the stream.
+        attachment = discord.File(bio, filename="pace.png")
+        
+        # Send the file as a response to the interaction.
+        await interaction.followup.send(file=attachment)
+        return
