@@ -280,21 +280,23 @@ class StrategistGroup(app_commands.Group):
 
         # --- Plotting ---
         # 1. Create the violin plot to show the distribution of lap times for each driver.
+        driver_palette = { value['Tla']: f"#{value['TeamColour']}" for key, value in driverList.items() }
         sns.violinplot(data=driver_laps,
                     x="Driver", y="LapTime(s)", hue="Driver",
                     inner=None, # Hides the inner box/stick plot inside the violin.
                     density_norm="area", # Ensures violins have the same area.
                     order=driver_order,
-                    palette=fastf1.plotting.get_driver_color_mapping(session=session_list[-1])
+                    palette=driver_palette
                 )
 
         # 2. Overlay a swarm plot to show each individual lap.
         #    Each point is colored by the tyre compound used for that lap.
+        tire_palette={'SOFT': '#da291c', 'MEDIUM': '#ffd12e', 'HARD': '#f0f0ec', 'INTERMEDIATE': '#43b02a', 'WET': '#0067ad', 'UNKNOWN': '#00ffff', 'TEST-UNKNOWN': '#434649'}
         sns.swarmplot(data=driver_laps,
                     x="Driver", y="LapTime(s)",
                     order=driver_order,
                     hue="Compound",
-                    palette=fastf1.plotting.get_compound_mapping(session=session_list[-1]),
+                    palette=tire_palette,
                     hue_order=["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"], # Fixed compound order
                     linewidth=0,
                     size=3,
