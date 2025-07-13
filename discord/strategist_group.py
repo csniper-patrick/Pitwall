@@ -229,9 +229,9 @@ class StrategistGroup(app_commands.Group):
         # It figures out the year, event number, and the latest completed session.
         # If the current session is not yet 'Complete', it subtracts 1 to only plot completed sessions.
         session_idx ={
-            'year': datetime.datetime.strptime(sessionInfo['StartDate'], '%Y-%m-%dT%H:%M:%S').year,
-            'event': sessionInfo['Meeting']['Number'],
-            'session': session_number_mapping[sessionInfo['Name']] - int( "Complete" != sessionInfo['ArchiveStatus']['Status'] )
+            'year': int(datetime.datetime.strptime(sessionInfo['StartDate'], '%Y-%m-%dT%H:%M:%S').year),
+            'event': int(sessionInfo['Meeting']['Number']),
+            'session': int(session_number_mapping[sessionInfo['Name']]) - int( "Complete" != sessionInfo['ArchiveStatus']['Status'] )
         }
         
         # --- Historical Data Loading ---
