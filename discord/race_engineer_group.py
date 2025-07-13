@@ -224,6 +224,7 @@ class RaceEngineerGroup(app_commands.Group):
         Generates and sends a plot showing the position changes of each driver
         throughout the current Race or Sprint session.
         """
+        await interaction.response.defer(ephemeral=True, thinking=True)
         # --- Data Fetching ---
         # Establish a connection to Redis and fetch the necessary data sets.
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
