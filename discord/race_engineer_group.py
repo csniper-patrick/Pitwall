@@ -232,13 +232,6 @@ class RaceEngineerGroup(app_commands.Group):
         sessionInfo = await redis_client.json().get("SessionInfo")
         lapSeries = await redis_client.json().get("LapSeries")
 
-        # --- Data Cleaning ---
-        # The data source might include a '_kf' key which is internal metadata.
-        # It's removed here to prevent it from being processed as a driver.
-        driverList.pop("_kf", None)
-        sessionInfo.pop("_kf", None)
-
-
         # --- Session Validation ---
         # This command is only meaningful during a race or sprint.
         if sessionInfo["Type"] not in ["Race", "Sprint"]:

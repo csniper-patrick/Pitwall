@@ -205,9 +205,7 @@ class StrategistGroup(app_commands.Group):
         # This is used to identify the year, event, and which sessions have been completed.
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         driverList = await redis_client.json().get("DriverList")
-        driverList.pop("_kf", None)
         sessionInfo = await redis_client.json().get("SessionInfo")
-        sessionInfo.pop("_kf", None)
 
         # --- Historical Session Identification ---
         # Map F1 session names to the corresponding session number used by FastF1.
@@ -255,14 +253,15 @@ class StrategistGroup(app_commands.Group):
 
         # For each session, get all valid laps for the specified drivers.
         # - pick_not_deleted(): Excludes laps invalidated by race control.
-        # - pick_wo_box(): Excludes in-laps and out-laps.
-        # - pick_accurate(): Excludes laps with inaccurate timing data.
+        # - pick_wo_box():      Excludes in-laps and out-laps.
+        # - pick_accurate():    Excludes laps with inaccurate timing data.
+        # - pick_track_status("1"): Includes only laps set under green flag conditions.
         driver_laps_per_session = [
             session.laps.pick_drivers(drivers)
             .pick_wo_box()
             .pick_not_deleted()
             .pick_accurate()
-            .pick_track_status("1")
+            .pick_track_status("1") # "1" is green flag
             for session in session_list
         ]
         # Combine the laps from all sessions into a single pandas DataFrame.
@@ -270,9 +269,8 @@ class StrategistGroup(app_commands.Group):
         driver_laps = driver_laps.reset_index()
 
         # --- Plotting Setup ---
-        # Determine the order of drivers on the x-axis based on their abbreviation.
-        # This ensures the plot is ordered logically (e.g., by team or finishing position).
-        driver_order = [session_list[-1].get_driver(i)["Abbreviation"] for i in drivers]
+        # Determine the order of drivers on the x-axis based on their current timing screen position.
+        driver_order = [driverList[i]['Tla'] for i in drivers]
 
         # Initialize the matplotlib figure and axes.
         fig, ax = plt.subplots(figsize=(21, 9))
