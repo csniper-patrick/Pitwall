@@ -226,21 +226,15 @@ class RaceEngineerGroup(app_commands.Group):
         """
         await interaction.response.defer(ephemeral=True, thinking=True)
         # --- Data Fetching ---
-        # Establish a connection to Redis and fetch the necessary data sets.
+        # Establish a connection to Redis to fetch live session data.
+        # - DriverList: Contains info about each driver (name, team, color).
+        # - SessionInfo: Provides details about the current session (e.g., Race, Sprint).
+        # - LapSeries: Contains lap-by-lap data for each driver, including their position.
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         driverList = await redis_client.json().get("DriverList")
         sessionInfo = await redis_client.json().get("SessionInfo")
         lapSeries = await redis_client.json().get("LapSeries")
 
-        # --- Data Cleaning ---
-        # The data source might include a '_kf' key which is internal metadata.
-        # It's removed here to prevent it from being processed as a driver.
-        driverList.pop("_kf", None)
-        sessionInfo.pop("_kf", None)
-
-
-        # --- Session Validation ---
-        # This command is only meaningful during a race or sprint.
         if sessionInfo["Type"] not in ["Race", "Sprint"]:
             await interaction.response.send_message("This command is only available during a Race or Sprint session.", ephemeral=True)
             return
@@ -250,9 +244,10 @@ class RaceEngineerGroup(app_commands.Group):
         fig, ax = plt.subplots(figsize=(12.0, 6.0))
 
         # --- Driver Styling ---
-        # Create a unique visual style (color and line style) for each driver/team.
-        # This helps in differentiating drivers on the plot.
-        # Sorting by team color groups teammates visually.
+        # Create a unique visual style (color and line style) for each driver.
+        # The color is based on the team's official color. To help differentiate
+        # teammates, the line style alternates between solid and dashed.
+        # Sorting by team color ensures teammates are processed sequentially for this styling.
         driver_style = {
             key: {
                 "color": f"#{info['TeamColour']}",
@@ -263,42 +258,52 @@ class RaceEngineerGroup(app_commands.Group):
             )
         }
 
-        # --- Plotting Loop ---
-        # Iterate through each driver to plot their position over laps.
-        xvals=[] # To store the last lap number for each driver for label placement
-        for drv, info in sorted(driverList.items(), key=lambda item: item[1]['TeamName']):
-            style = driver_style[drv]
-            # Create a list of lap numbers and corresponding positions.
-            lap_no = list(range(len(lapSeries[drv]['LapPosition'])))
-            lap_pos = [ int(i) for i in lapSeries[drv]['LapPosition'] ]
-            xvals.append(max(lap_no) if lap_no else 0) # Store the last lap for the label
-            # Plot the driver's position data.
-            ax.plot(lap_no, lap_pos,
-                    label=info['Tla'], **style)
-
-        # --- Axis Configuration ---
-        # Invert the y-axis so that P1 is at the top.
-        ax.set_ylim([len(driver_style.items())+1, 0])
-        # Set ticks for major positions for better readability.
-        ax.set_yticks([1, 5, 10, 15, 20])
-        ax.set_xlabel('LAP')
-        ax.set_ylabel('POS')
-
-        # --- Final Touches ---
-        # Adjust layout to prevent labels from being cut off.
-        fig.tight_layout()
-        # Use labellines to place driver TLA (three-letter abbreviation) next to their line.
-        labelLines(ax.get_lines(), align=False, xvals=xvals)
-
-        # --- File Generation & Sending ---
-        # Save the generated plot to an in-memory binary stream (BytesIO).
+        # --- Caching ---
+        # Check if a cached version of the plot exists in Redis.
+        # The plot is cached for 60 seconds to handle multiple requests quickly without
+        # regenerating the image every time.
         bio = io.BytesIO()
-        fig.savefig(bio, dpi=700, format="png")
-        # Reset the stream's position to the beginning.
-        bio.seek(0)
-        # Create a discord.File object from the stream.
-        attachment = discord.File(bio, filename="position.png")
+        cached_bytes = await redis_client.get("position_change.png")
+        if cached_bytes:
+            bio = io.BytesIO(cached_bytes)
+        else:
+            # --- Plotting Loop ---
+            # Iterate through each driver to plot their position over the course of the session.
+            xvals=[] # Stores the last lap number for each driver, used to place labels correctly.
+            for drv, info in sorted(driverList.items(), key=lambda item: item[1]['TeamName']):
+                style = driver_style[drv]
+                # Extract the position for each lap from the LapSeries data.
+                lap_no = list(range(len(lapSeries[drv]['LapPosition'])))
+                lap_pos = [ int(i) for i in lapSeries[drv]['LapPosition'] ]
+                xvals.append(max(lap_no) if lap_no else 0) # Store the last lap for the label.
+                # Plot the driver's position data using the pre-defined style.
+                ax.plot(lap_no, lap_pos,
+                        label=info['Tla'], **style)
+
+            # --- Axis Configuration ---
+            # Invert the y-axis so that P1 is at the top.
+            ax.set_ylim([len(driver_style.items())+1, 0])
+            # Set ticks for major positions for better readability.
+            ax.set_yticks([1, 5, 10, 15, 20])
+            ax.set_xlabel('LAP')
+            ax.set_ylabel('POS')
+
+            # --- Final Touches ---
+            # Adjust layout to prevent labels from being cut off.
+            fig.tight_layout()
+            # Use labellines to place driver TLA (three-letter abbreviation) next to their line.
+            labelLines(ax.get_lines(), align=False, xvals=xvals)
+
+            # --- Image Generation & Caching ---
+            # Save the generated plot to an in-memory binary stream (BytesIO).
+            fig.savefig(bio, dpi=700, format="png")
+            # Reset the stream's position to the beginning before reading.
+            bio.seek(0)
+            # Cache the newly generated plot in Redis for 60 seconds.
+            await redis_client.set("position_change.png", bio.getvalue(), ex=60)
         
-        # Send the file as a response to the interaction.
+        # --- Send Response ---
+        # Create a discord.File object from the stream and send it.
+        attachment = discord.File(bio, filename="position_change.png")
         await interaction.followup.send(file=attachment)
         return
