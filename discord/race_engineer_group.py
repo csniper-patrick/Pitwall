@@ -236,7 +236,7 @@ class RaceEngineerGroup(app_commands.Group):
         lapSeries = await redis_client.json().get("LapSeries")
 
         if sessionInfo["Type"] not in ["Race", "Sprint"]:
-            await interaction.response.send_message("This command is only available during a Race or Sprint session.", ephemeral=True)
+            await interaction.followup.send(content="This command is only available during a Race or Sprint session.", ephemeral=True)
             return
         
         # --- Plotting Setup ---
