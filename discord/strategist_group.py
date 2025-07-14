@@ -243,7 +243,7 @@ class StrategistGroup(app_commands.Group):
 
         # Load the data for each session. This can be time-consuming.
         for session in session_list:
-            session.load()
+            session.load(telemetry=False)
 
         if len(session_list) == 0:
             await interaction.followup.send(content="No completed sessions available to generate a pace plot.")
@@ -260,6 +260,9 @@ class StrategistGroup(app_commands.Group):
         driver_laps_per_session = [
             session.laps.pick_drivers(drivers)
             .pick_wo_box()
+            .pick_not_deleted()
+            .pick_accurate()
+            .pick_track_status("1")
             for session in session_list
         ]
         # Combine the laps from all sessions into a single pandas DataFrame.
