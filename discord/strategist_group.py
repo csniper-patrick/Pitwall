@@ -254,7 +254,7 @@ class StrategistGroup(app_commands.Group):
             # Load the data for each session. This can be time-consuming.
             # We disable telemetry loading as we only need lap data.
             for session in session_list:
-                session.load(telemetry=False)
+                session.load(telemetry=False, weather=True, messages=True)
 
             if len(session_list) == 0:
                 await interaction.followup.send(content="No completed sessions available to generate a pace plot.")
