@@ -2,7 +2,7 @@
 
 Pitwall is a discord bot that connect to the [live timing API](https://livetiming.formula1.com/) endpoint, process and push live messages into channel of your choice. It also provide a handful of slash commands for on demand infomation. 
 
-Features:
+## Push Messages
 | Message type | Available Session type | Description |
 |--------------|------------------------|-------------|
 | Race control messages | ALL | Messages from race control. eg. Flags, VSC/SC, penalty & investigation, lap time deleted |
@@ -15,11 +15,7 @@ Features:
 | Pit Stop | Race, Sprint | Notify pit stop time. (if available)|
 | Team tasio | ALL | Transcribed team radio messages | 
 
-
-This is a continuation of the [Race Control Bot](https://gitlab.com/CSniper/race-control-bot) project. 
-
-## Architecture
-Push message Architecture
+### Architecture
 ```mermaid
 graph LR
     subgraph redis-stack
@@ -47,8 +43,26 @@ graph LR
     K --> M
     L --> M
 ```
+## Slash Commands
+All slash command responses except `/pitwall-help` are ephemeral, meaning only you can see them.
 
-Slash command Architecture
+| Command | Parameters | Description |
+|---|---|---|
+| `/pitwall-help` | | Shows a list of all available commands. |
+| **Strategist Commands** | | _Commands for the Strategist._ |
+| `/strategist schedule` | `event_name` (optional) | Get the F1 schedule for an event, or the next upcoming event. |
+| `/strategist trackmap` | `event_name` (optional) | Displays the track map for an event, or the next upcoming event. |
+| `/strategist pace` | | Generates a violin plot of lap times from all completed sessions for the current event. |
+| **Race Engineer Commands** | | _Commands for the Race Engineer._ |
+| `/race-engineer tyres` | | Shows the current tyre compound and tyre age for all active drivers. |
+| `/race-engineer track_condition` | | Displays the current track status and weather conditions. |
+| `/race-engineer gap_in_front` | | Shows each driver's lap time and gap to the car ahead. |
+| `/race-engineer gap_to_lead` | | Shows each driver's lap time and gap to the session leader. |
+| `/race-engineer position` | | Plots each driver's position change throughout the race or sprint. |
+
+This is a continuation of the [Race Control Bot](https://gitlab.com/CSniper/race-control-bot) project. 
+
+### Architecture
 ```mermaid
 graph LR
     M[discord channel]
