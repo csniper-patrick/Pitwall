@@ -74,6 +74,7 @@ async def connectLiveTiming():
                     if "R" in messages:
                         for key, value_zip in messages["R"].items():
                             value = json.loads(zlib.decompress(base64.b64decode(value_zip), -zlib.MAX_WBITS))
+                            value.pop("_kf", None)
                             await redis_client.json().set(key.replace(".z",''), Path.root_path(), value)
                     # update data structure (delta)
                     if "M" in messages:
@@ -81,6 +82,7 @@ async def connectLiveTiming():
                             if msg["H"] == "Streaming":
                                 channel, value_zip = msg["A"][0].replace(".z",''),  msg["A"][1]
                                 value = json.loads(zlib.decompress(base64.b64decode(value_zip), -zlib.MAX_WBITS))
+                                value.pop("_kf", None)
                                 asyncio.create_task(redis_client.json().set(channel, Path.root_path(), value))
                                 asyncio.create_task(redis_client.publish(channel, json.dumps(value)))
 

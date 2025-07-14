@@ -72,12 +72,14 @@ async def connectLiveTiming():
                     # update data structure (full)
                     if "R" in messages:
                         for key, value in messages["R"].items():
+                            value.pop("_kf", None)
                             await redis_client.json().set(key, Path.root_path(), value)
                     # update data structure (delta)
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 channel, delta = msg["A"][0],  msg["A"][1]
+                                delta.pop("_kf", None)
                                 if channel == "Heartbeat":
                                     continue
                                 reference = await redis_client.json().get(channel)
