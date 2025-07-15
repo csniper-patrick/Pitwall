@@ -239,7 +239,7 @@ class StrategistGroup(app_commands.Group):
 
     @app_commands.command(
         name="pace",
-        description="Generates a violin plot of lap times from all completed sessions for the current event.",
+        description="Generates a box plot of lap times from all completed sessions for the current event.",
     )
     async def pace(self, interaction: discord.Interaction):
         """
@@ -371,13 +371,11 @@ class StrategistGroup(app_commands.Group):
             }
             # 1. Create the violin plot to show the distribution of lap times for each driver.
             #    This gives a good overview of each driver's pace consistency.
-            sns.violinplot(
+            sns.boxplot(
                 data=driver_laps,
                 x="Driver",
                 y="LapTime(s)",
                 hue="Driver",
-                inner=None,  # Hides the inner box/stick plot inside the violin.
-                density_norm="area",  # Ensures violins have the same area.
                 order=driver_order,
                 palette=driver_palette,
                 fill=False,
