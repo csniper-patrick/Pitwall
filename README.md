@@ -13,7 +13,7 @@ Pitwall is a discord bot that connect to the live timing API endpoint, process a
 | Race leader | Race, Sprint | Notify when race leader changed |
 | Retired | Race, Sprint | Notify when driver retired from the session |
 | Pit Stop | Race, Sprint | Notify pit stop time. (if available)|
-| Team tasio | ALL | Transcribed team radio messages | 
+| Team radio | ALL | Transcribed team radio messages | 
 
 ### Architecture
 ```mermaid

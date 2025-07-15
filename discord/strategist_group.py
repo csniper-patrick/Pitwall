@@ -356,8 +356,8 @@ class StrategistGroup(app_commands.Group):
             # Initialize the matplotlib figure and axes.
             fig, ax = plt.subplots(figsize=(21, 9))
             fig.tight_layout()
-            ax.set_xlabel("Time")
-            ax.set_ylabel("Driver")
+            ax.set_xlabel("Driver")
+            ax.set_ylabel("Lap Time")
             ax.grid(axis="y", linestyle="--")
 
             # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
