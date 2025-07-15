@@ -366,3 +366,33 @@ class StrategistGroup(app_commands.Group):
         else:
             await interaction.response.send_message(embeds=[embed_in_contention], ephemeral=True)
         return
+
+    @app_commands.command(name="constructor_standing", description="World Constructor Champion standing")
+    async def constructor_standing(self, interaction: discord.Interaction):
+        # get current constructor standing
+        constructor_standings = Ergast().get_constructor_standings(season=datetime.datetime.now(datetime.timezone.utc).year).content[0]
+
+        POINTS_FOR_CONVENTIONAL = 25 + 18 # Winning the race
+        POINTS_FOR_SPRINT = 8 + 7 + POINTS_FOR_CONVENTIONAL # Winning the sprint and race
+
+        events = fastf1.events.get_events_remaining(include_testing=True)
+        # Calculate points for each
+        sprint_points = len(events.loc[events["EventFormat"] == "sprint_shootout"]) * POINTS_FOR_SPRINT
+        conventional_points = len(events.loc[events["EventFormat"] == "conventional"]) * POINTS_FOR_CONVENTIONAL
+        total_points_remaining = sprint_points + conventional_points
+
+        LEADER_POINTS = int(constructor_standings.loc[0]['points'])
+        constructor_in_contention = constructor_standings[ constructor_standings['points'] >= LEADER_POINTS - total_points_remaining ]
+        constructor_outof_contention = constructor_standings[ constructor_standings['points'] < LEADER_POINTS - total_points_remaining ]
+        embed_in_contention = discord.Embed(title="World Constructor Champion", color=discord.Color.gold())
+        for i, constructor in constructor_in_contention.iterrows():
+            embed_in_contention.add_field(name=f"{constructor['constructorName']}", value=f"{constructor['points']}", inline=False)
+        
+        if len(constructor_outof_contention.index) > 0:
+            embed_outof_contention = discord.Embed(title="Out of Contention")
+            for i, constructor in constructor_outof_contention.iterrows():
+                embed_outof_contention.add_field(name=f"{constructor['constructorName']}", value=f"{constructor['points']}", inline=False)
+            await interaction.response.send_message(embeds=[embed_in_contention, embed_outof_contention], ephemeral=True)
+        else:
+            await interaction.response.send_message(embeds=[embed_in_contention], ephemeral=True)
+        return
