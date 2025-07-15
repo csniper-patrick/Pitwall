@@ -1,6 +1,6 @@
 requests
 asyncio
-websockets>=14
+websockets
 discordwebhook
 python-dotenv
 redis
@@ -9,7 +9,7 @@ wget
 torch
 accelerate
 discord.py
-fastf1
+fastf1>=3.6.0
 pandas
 numpy
 matplotlib

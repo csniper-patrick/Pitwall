@@ -68,12 +68,12 @@ async def connectLiveTiming():
     transcriber = pipeline("automatic-speech-recognition", model=model, return_timestamps=True)
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
     while True:
-        data, headers, params, additional_headers = negotiate()
+        data, headers, params, extra_headers = negotiate()
         
 		# connect to redis 
         async with websockets.connect(
             f"{websocketUrl}/connect?{params}",
-            additional_headers=additional_headers,
+            extra_headers=extra_headers,
             ping_interval=None,
         ) as sock:
             try:

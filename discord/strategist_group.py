@@ -4,15 +4,14 @@ import discord
 from discord import app_commands
 import os
 import fastf1
+import fastf1.plotting
+from fastf1.ergast import Ergast
 import datetime
 import logging
 import pandas as pd
 from dotenv import load_dotenv
 from typing import Optional
 import matplotlib.pyplot as plt
-import matplotlib.style as style
-import fastf1.plotting
-from labellines import labelLines
 import datetime
 import seaborn as sns
 import io
@@ -336,4 +335,34 @@ class StrategistGroup(app_commands.Group):
         attachment = discord.File(bio, filename=f"pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png")
         # Send the file as a response to the interaction.
         await interaction.followup.send(file=attachment)
+        return
+
+    @app_commands.command(name="driver_standing", description="World Driver Champion standing")
+    async def driver_standing(self, interaction: discord.Interaction):
+        # get current driver standing
+        driver_standings = Ergast().get_driver_standings(season=datetime.datetime.now(datetime.timezone.utc).year).content[0]
+
+        POINTS_FOR_CONVENTIONAL = 25 # Winning the race
+        POINTS_FOR_SPRINT = POINTS_FOR_CONVENTIONAL + 25 # Winning the sprint and race
+
+        events = fastf1.events.get_events_remaining(include_testing=True)
+        # Calculate points for each
+        sprint_points = len(events.loc[events["EventFormat"] == "sprint_shootout"]) * POINTS_FOR_SPRINT
+        conventional_points = len(events.loc[events["EventFormat"] == "conventional"]) * POINTS_FOR_CONVENTIONAL
+        total_points_remaining = sprint_points + conventional_points
+
+        LEADER_POINTS = int(driver_standings.loc[0]['points'])
+        driver_in_contention = driver_standings[ driver_standings['points'] >= LEADER_POINTS - total_points_remaining ]
+        driver_outof_contention = driver_standings[ driver_standings['points'] < LEADER_POINTS - total_points_remaining ]
+        embed_in_contention = discord.Embed(title="World Driver Champion", color=discord.Color.gold())
+        for i, driver in driver_in_contention.iterrows():
+            embed_in_contention.add_field(name=f"{driver['givenName']} {driver['familyName']}", value=f"{driver['points']}", inline=False)
+        
+        if len(driver_outof_contention.index) > 0:
+            embed_outof_contention = discord.Embed(title="Out of Contention")
+            for i, driver in driver_outof_contention.iterrows():
+                embed_outof_contention.add_field(name=f"{driver['givenName']} {driver['familyName']}", value=f"{driver['points']}", inline=False)
+            await interaction.response.send_message(embeds=[embed_in_contention, embed_outof_contention], ephemeral=True)
+        else:
+            await interaction.response.send_message(embeds=[embed_in_contention], ephemeral=True)
         return
