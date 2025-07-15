@@ -13,13 +13,16 @@ load_dotenv()
 DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
 # load pit time reference
-pit_time_reference=defaultdict(lambda: dict(mean=25., std=5.))
-with open('data/pit-time-stat.json', 'r') as file:
+pit_time_reference = defaultdict(lambda: dict(mean=25.0, std=5.0))
+with open("data/pit-time-stat.json", "r") as file:
     for circuit, stat in json.load(file).items():
-        pit_time_reference[circuit]['mean']=stat["mean"]
-        pit_time_reference[circuit]['std']=stat["std"]
+        pit_time_reference[circuit]["mean"] = stat["mean"]
+        pit_time_reference[circuit]["std"] = stat["std"]
 
-async def pitLaneTimeCollectionHandler(redis_client: redis.Redis, discord: Discord, raceNumber: str, delta: Dict[str, Any]) -> None:
+
+async def pitLaneTimeCollectionHandler(
+    redis_client: redis.Redis, discord: Discord, raceNumber: str, delta: Dict[str, Any]
+) -> None:
     # get data from redis
     if "RacingNumber" not in delta or raceNumber != delta["RacingNumber"]:
         return
@@ -27,12 +30,10 @@ async def pitLaneTimeCollectionHandler(redis_client: redis.Redis, discord: Disco
     if sessionInfo["Type"] not in ["Race", "Sprint"]:
         return
     driverInfo = (await redis_client.json().get("DriverList"))[raceNumber]
-    durationSec = reversed(
-        [float(i) for i in re.split(":", delta["Duration"])]
-    )
+    durationSec = reversed([float(i) for i in re.split(":", delta["Duration"])])
     durationSec = sum([val * scaler for val, scaler in zip(durationSec, [1, 60])])
-    circuit=sessionInfo['Meeting']['Circuit']['ShortName']
-    z_score_1 = pit_time_reference[circuit]['mean']+pit_time_reference[circuit]['std']
+    circuit = sessionInfo["Meeting"]["Circuit"]["ShortName"]
+    z_score_1 = pit_time_reference[circuit]["mean"] + pit_time_reference[circuit]["std"]
     if durationSec >= z_score_1 and durationSec <= 600.0:
         discord.post(
             username=f"{driverInfo['TeamName']}{VER_TAG}",
@@ -51,7 +52,10 @@ async def pitLaneTimeCollectionHandler(redis_client: redis.Redis, discord: Disco
             ],
         )
 
-async def pitStopHandler(redis_client: redis.Redis, discord: Discord, message: Dict[str, Any]) -> None:
+
+async def pitStopHandler(
+    redis_client: redis.Redis, discord: Discord, message: Dict[str, Any]
+) -> None:
     sessionInfo = await redis_client.json().get("SessionInfo")
     if sessionInfo["Type"] not in ["Race", "Sprint"]:
         return
@@ -74,24 +78,38 @@ async def pitStopHandler(redis_client: redis.Redis, discord: Discord, message: D
     )
     return
 
+
 async def connectRedisChannel() -> None:
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+    redis_client = redis.Redis(
+        host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
+    )
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("PitLaneTimeCollection", "PitStop", "PitStopSeries")
-        async for payload in pubsub.listen() :
-            if payload["type"] == "message" :
+        async for payload in pubsub.listen():
+            if payload["type"] == "message":
                 match payload["channel"].decode("utf-8"):
                     case "PitLaneTimeCollection":
-                        pitTimes=json.loads(payload["data"])["PitTimes"]
+                        pitTimes = json.loads(payload["data"])["PitTimes"]
                         for raceNumber, delta in pitTimes.items():
-                            asyncio.create_task(pitLaneTimeCollectionHandler(redis_client, Discord(url=DISCORD_WEBHOOK), raceNumber, delta))
+                            asyncio.create_task(
+                                pitLaneTimeCollectionHandler(
+                                    redis_client,
+                                    Discord(url=DISCORD_WEBHOOK),
+                                    raceNumber,
+                                    delta,
+                                )
+                            )
                     case "PitStop":
-                        pitStop=json.loads(payload["data"])
-                        asyncio.create_task(pitStopHandler(redis_client, Discord(url=DISCORD_WEBHOOK), pitStop))
-                    case _ :
+                        pitStop = json.loads(payload["data"])
+                        asyncio.create_task(
+                            pitStopHandler(
+                                redis_client, Discord(url=DISCORD_WEBHOOK), pitStop
+                            )
+                        )
+                    case _:
                         continue
-                    
+
 
 if __name__ == "__main__":
     asyncio.run(connectRedisChannel())

@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 import urllib.parse
 
+
 def updateDictDelta(obj, delta):
     for key, value in delta.items():
         if key not in obj:
@@ -49,6 +50,7 @@ def msec2timeStr(msec: int, signed: bool = False):
     timeStr += "." + str(val % 1000).zfill(3)
     return timeStr
 
+
 def load_config():
 
     USE_SSL = (os.getenv("USE_SSL", default="True")) == "True"
@@ -72,7 +74,7 @@ def load_config():
 
     # Redis configuration
     REDIS_HOST = os.getenv("REDIS_HOST", default="redis")
-    REDIS_PORT = os.getenv("REDIS_PORT", default=6379) 
+    REDIS_PORT = os.getenv("REDIS_PORT", default=6379)
     REDIS_CHANNEL = "RACE_CONTROL"
 
     clientProtocol = 1.5

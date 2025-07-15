@@ -2,6 +2,7 @@ import os
 import json
 from typing import *
 
+
 def updateDictDelta(obj: Dict[str, Any], delta: Dict[str, Any]) -> Dict[str, Any]:
     for key, value in delta.items():
         if key not in obj:
@@ -20,8 +21,9 @@ def updateDictDelta(obj: Dict[str, Any], delta: Dict[str, Any]) -> Dict[str, Any
             obj[key] = value
     return obj
 
+
 def load_config() -> Tuple[str, str, Dict[str, Any], str, int, str, bool]:
-    
+
     DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")
     VER_TAG = os.getenv("VER_TAG", default="")
     MSG_STYLE_PATH = os.getenv("MSG_STYLE_PATH", default="./style.json")
@@ -48,7 +50,7 @@ def load_config() -> Tuple[str, str, Dict[str, Any], str, int, str, bool]:
             "WET": 2123412,  # BLUE
         },
         "compoundSymbol": {},
-        "raceDirector": "Race Director"
+        "raceDirector": "Race Director",
     }
     if os.path.isfile(MSG_STYLE_PATH):
         with open(MSG_STYLE_PATH) as f:
@@ -56,7 +58,7 @@ def load_config() -> Tuple[str, str, Dict[str, Any], str, int, str, bool]:
 
     # Redis configuration
     REDIS_HOST = os.getenv("REDIS_HOST", default="redis")
-    REDIS_PORT = os.getenv("REDIS_PORT", default=6379) 
+    REDIS_PORT = os.getenv("REDIS_PORT", default=6379)
     REDIS_CHANNEL = "RACE_CONTROL"
 
     RETRY = (os.getenv("RETRY", default="True")) == "True"

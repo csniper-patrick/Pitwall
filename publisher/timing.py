@@ -20,21 +20,22 @@ class debouncer:
         self.channel = channel
         self.message = {}
         self.debounce_task = None
-    
+
     async def add_message(self, message):
         self.message = updateDictDelta(self.message, message)
         if self.debounce_task:
             self.debounce_task.cancel()
         self.debounce_task = asyncio.create_task(self._delayed_publish())
-    
+
     async def _delayed_publish(self):
         try:
             await asyncio.sleep(self.interval)
             await self.redis_client.publish(self.channel, json.dumps(self.message))
-            self.debounce_task=None
-            self.message={}
+            self.debounce_task = None
+            self.message = {}
         except asyncio.CancelledError:
             pass
+
 
 def negotiate():
     connectionData = [{"name": "Streaming"}]
@@ -46,29 +47,37 @@ def negotiate():
                 "clientProtocol": clientProtocol,
             },
         )
-        
-        return res.json(), res.headers, urllib.parse.urlencode(
+
+        return (
+            res.json(),
+            res.headers,
+            urllib.parse.urlencode(
+                {
+                    "clientProtocol": 1.5,
+                    "transport": "webSockets",
+                    "connectionToken": res.json()["ConnectionToken"],
+                    "connectionData": json.dumps([{"name": "Streaming"}]),
+                }
+            ),
             {
-                "clientProtocol": 1.5,
-                "transport": "webSockets",
-                "connectionToken": res.json()["ConnectionToken"],
-                "connectionData": json.dumps([{"name": "Streaming"}]),
-            }
-        ), {
-            "User-Agent": "BestHTTP",
-            "Accept-Encoding": "gzip,identity",
-            "Cookie": res.headers["Set-Cookie"],
-        }
-        
+                "User-Agent": "BestHTTP",
+                "Accept-Encoding": "gzip,identity",
+                "Cookie": res.headers["Set-Cookie"],
+            },
+        )
+
     except Exception as error:
         print(error)
 
+
 async def connectLiveTiming():
     lastLapTimeDebouncer = {}
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+    redis_client = redis.Redis(
+        host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
+    )
     while True:
         data, headers, params, extra_headers = negotiate()
-		# connect to redis 
+        # connect to redis
         async with websockets.connect(
             f"{websocketUrl}/connect?{params}",
             extra_headers=extra_headers,
@@ -80,11 +89,7 @@ async def connectLiveTiming():
                         {
                             "H": "Streaming",
                             "M": "Subscribe",
-                            "A": [
-                                [
-                                    "TimingDataF1"
-                                ]
-                            ],
+                            "A": [["TimingDataF1"]],
                             "I": 1,
                         }
                     )
@@ -99,30 +104,62 @@ async def connectLiveTiming():
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
-                                channel, delta = msg["A"][0],  msg["A"][1]
+                                channel, delta = msg["A"][0], msg["A"][1]
                                 delta.pop("_kf", None)
                                 if channel == "Heartbeat":
                                     continue
-                                reference = await redis_client.json().get(channel) 
+                                reference = await redis_client.json().get(channel)
                                 reference = updateDictDelta(reference or {}, delta)
-                                asyncio.create_task(redis_client.json().set(channel, Path.root_path(), reference))
+                                asyncio.create_task(
+                                    redis_client.json().set(
+                                        channel, Path.root_path(), reference
+                                    )
+                                )
                                 # extract LastLapTime
-                                lastLapTimeDelta = dict([ (key, value.pop('LastLapTime', None))
-                                                        for key, value in delta["Lines"].items()
-                                                        if "LastLapTime" in value ])
+                                lastLapTimeDelta = dict(
+                                    [
+                                        (key, value.pop("LastLapTime", None))
+                                        for key, value in delta["Lines"].items()
+                                        if "LastLapTime" in value
+                                    ]
+                                )
                                 if len(lastLapTimeDelta) != 0:
                                     for raceNumber, value in lastLapTimeDelta.items():
                                         if raceNumber not in lastLapTimeDebouncer:
-                                            lastLapTimeDebouncer[raceNumber] = debouncer(redis_client=redis_client, channel=channel)
+                                            lastLapTimeDebouncer[raceNumber] = (
+                                                debouncer(
+                                                    redis_client=redis_client,
+                                                    channel=channel,
+                                                )
+                                            )
                                         if value is not None:
-                                            await lastLapTimeDebouncer[raceNumber].add_message( {
-                                                "Lines": dict([(raceNumber, dict(LastLapTime = value))])
-                                            })
-                                
+                                            await lastLapTimeDebouncer[
+                                                raceNumber
+                                            ].add_message(
+                                                {
+                                                    "Lines": dict(
+                                                        [
+                                                            (
+                                                                raceNumber,
+                                                                dict(LastLapTime=value),
+                                                            )
+                                                        ]
+                                                    )
+                                                }
+                                            )
+
                                 # residual
-                                delta["Lines"]=dict([(key, value) for key, value in delta["Lines"].items() if len(value)>0 ])
+                                delta["Lines"] = dict(
+                                    [
+                                        (key, value)
+                                        for key, value in delta["Lines"].items()
+                                        if len(value) > 0
+                                    ]
+                                )
                                 # publish message
-                                asyncio.create_task( redis_client.publish(channel, json.dumps(delta)) )
+                                asyncio.create_task(
+                                    redis_client.publish(channel, json.dumps(delta))
+                                )
 
             except Exception as error:
                 print(error)
@@ -130,6 +167,7 @@ async def connectLiveTiming():
                     continue
                 else:
                     break
+
 
 if __name__ == "__main__":
     asyncio.run(connectLiveTiming())

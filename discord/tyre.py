@@ -26,41 +26,62 @@ async def tyresStintSeriesHandler(
     for idx, stint in delta.items():
         if "Compound" in stint:
             fullStintData = tyreStint[int(idx)]
-            if stint['Compound'] in msgStyle["compoundSymbol"]:
+            if stint["Compound"] in msgStyle["compoundSymbol"]:
                 currentCompound = f"{msgStyle["compoundSymbol"][stint['Compound']]}{stint['Compound']}"
             else:
-                currentCompound = stint['Compound']
+                currentCompound = stint["Compound"]
             discord.post(
-				username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
-				embeds=[
-					{
-						"title": f"Tyre Change - { currentCompound }",
-						"fields": [
-							{"name": "Stint", "value": int(idx) + 1, "inline": True},
-							{"name": "Age", "value": fullStintData["StartLaps"], "inline": True},
-						],
-						"color": msgStyle["compoundColor"][stint["Compound"]] if "Compound" in stint and stint["Compound"] in msgStyle["compoundColor"] else None,
-					}
-				],
-				avatar_url=driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
-			)
+                username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
+                embeds=[
+                    {
+                        "title": f"Tyre Change - { currentCompound }",
+                        "fields": [
+                            {"name": "Stint", "value": int(idx) + 1, "inline": True},
+                            {
+                                "name": "Age",
+                                "value": fullStintData["StartLaps"],
+                                "inline": True,
+                            },
+                        ],
+                        "color": (
+                            msgStyle["compoundColor"][stint["Compound"]]
+                            if "Compound" in stint
+                            and stint["Compound"] in msgStyle["compoundColor"]
+                            else None
+                        ),
+                    }
+                ],
+                avatar_url=(
+                    driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
+                ),
+            )
+
 
 async def connectRedisChannel() -> None:
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+    redis_client = redis.Redis(
+        host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
+    )
     # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("TyreStintSeries")
-        async for payload in pubsub.listen() :
+        async for payload in pubsub.listen():
             match payload["channel"].decode("utf-8"):
                 case "TyreStintSeries":
-                    if payload["type"] == "message" :
+                    if payload["type"] == "message":
                         stints = json.loads(payload["data"])["Stints"]
                         for raceNumber, delta in stints.items():
                             if type(delta) == dict:
-                                asyncio.create_task(tyresStintSeriesHandler(redis_client, Discord(url=DISCORD_WEBHOOK), raceNumber, delta))
-                case _ :
+                                asyncio.create_task(
+                                    tyresStintSeriesHandler(
+                                        redis_client,
+                                        Discord(url=DISCORD_WEBHOOK),
+                                        raceNumber,
+                                        delta,
+                                    )
+                                )
+                case _:
                     continue
-                    
+
 
 if __name__ == "__main__":
     asyncio.run(connectRedisChannel())

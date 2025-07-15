@@ -25,10 +25,11 @@ load_dotenv()
 
 DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
 
-fastf1.plotting.setup_mpl(color_scheme='fastf1')
+fastf1.plotting.setup_mpl(color_scheme="fastf1")
 
 # This directory constant is needed for the trackmap command
 TRACKS_DIR = "data/tracks"
+
 
 async def event_autocomplete(
     interaction: discord.Interaction, current: str
@@ -59,16 +60,24 @@ class StrategistGroup(app_commands.Group):
     Encapsulates commands related to Race Strategy.
     This class defines a slash command group for Discord.
     """
+
     def __init__(self):
         # Initialize the command group with a name and description
         super().__init__(name="strategist", description="Commands for the Strategist.")
         log.info("Strategist command group initialized.")
 
-    @app_commands.command(name="schedule", description="Get the F1 schedule for an event, or the next upcoming event.")
+    @app_commands.command(
+        name="schedule",
+        description="Get the F1 schedule for an event, or the next upcoming event.",
+    )
     @app_commands.autocomplete(event_name=event_autocomplete)
-    async def schedule(self, interaction: discord.Interaction, event_name: Optional[str] = None):
+    async def schedule(
+        self, interaction: discord.Interaction, event_name: Optional[str] = None
+    ):
         """Fetches and displays F1 schedule: specific event if name provided, otherwise the next one."""
-        log.info(f"Command '/strategist schedule' invoked by {interaction.user} (Event: {event_name or 'Next Upcoming'})")
+        log.info(
+            f"Command '/strategist schedule' invoked by {interaction.user} (Event: {event_name or 'Next Upcoming'})"
+        )
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         target_event = None
@@ -89,7 +98,9 @@ class StrategistGroup(app_commands.Group):
                     target_event = remaining_events.iloc[0]
                     log.info(f"Found next upcoming event: {target_event['EventName']}")
                 else:
-                    log.warning(f"No upcoming races found for the {current_year} season after {now_utc}.")
+                    log.warning(
+                        f"No upcoming races found for the {current_year} season after {now_utc}."
+                    )
                     error_message = f"ℹ️ Couldn't find any upcoming F1 races scheduled for the rest of {current_year}."
 
             # --- Send response ---
@@ -98,45 +109,70 @@ class StrategistGroup(app_commands.Group):
                 embed = discord.Embed(
                     title=f"📅 F1 Event: {target_event['EventName']} (Round {target_event['RoundNumber']})",
                     description=f"📍 Location: {target_event['Location']}, {target_event['Country']}",
-                    color=discord.Color.blurple()
+                    color=discord.Color.blurple(),
                 )
 
                 # Find all valid sessions first
                 sessions = []
                 for i in range(1, 6):
-                    session_name = target_event.get(f'Session{i}')
-                    session_date = target_event.get(f'Session{i}Date')
+                    session_name = target_event.get(f"Session{i}")
+                    session_date = target_event.get(f"Session{i}Date")
                     if session_name and pd.notna(session_date):
-                        sessions.append({'name': session_name, 'date': session_date})
+                        sessions.append({"name": session_name, "date": session_date})
 
                 # Add each session as a separate field in the embed
                 if sessions:
                     for idx, session in enumerate(sessions):
-                        unix_ts = int(session['date'].timestamp())
-                        timestamp_str = f"<t:{unix_ts}:d> <t:{unix_ts}:t> (<t:{unix_ts}:R>)"
+                        unix_ts = int(session["date"].timestamp())
+                        timestamp_str = (
+                            f"<t:{unix_ts}:d> <t:{unix_ts}:t> (<t:{unix_ts}:R>)"
+                        )
 
                         # Bold the name of the last session (usually the Race)
-                        is_last_session = (idx == len(sessions) - 1)
-                        field_name = f"**{session['name']}**" if is_last_session else session['name']
-                        embed.add_field(name=field_name, value=timestamp_str, inline=False)
+                        is_last_session = idx == len(sessions) - 1
+                        field_name = (
+                            f"**{session['name']}**"
+                            if is_last_session
+                            else session["name"]
+                        )
+                        embed.add_field(
+                            name=field_name, value=timestamp_str, inline=False
+                        )
 
-                embed.set_footer(text="Note: Displayed in your local time. Session names might differ for Sprint weekends.")
-                log.info(f"Sending schedule for {target_event['EventName']} to {interaction.user}")
+                embed.set_footer(
+                    text="Note: Displayed in your local time. Session names might differ for Sprint weekends."
+                )
+                log.info(
+                    f"Sending schedule for {target_event['EventName']} to {interaction.user}"
+                )
                 await interaction.followup.send(embed=embed)
             elif error_message:
                 await interaction.followup.send(error_message)
             else:
-                 log.error(f"Could not find event '{event_name}' or any upcoming events.")
-                 await interaction.followup.send(f"❌ Could not find the event named '{event_name}'. Please check the name and try again.")
+                log.error(
+                    f"Could not find event '{event_name}' or any upcoming events."
+                )
+                await interaction.followup.send(
+                    f"❌ Could not find the event named '{event_name}'. Please check the name and try again."
+                )
         except Exception as e:
             log.error(f"Error executing '/strategist schedule': {e}", exc_info=True)
-            await interaction.followup.send(f"❌ An error occurred while fetching the F1 schedule.")
+            await interaction.followup.send(
+                f"❌ An error occurred while fetching the F1 schedule."
+            )
 
-    @app_commands.command(name="trackmap", description="Displays the track map for an event, or the next upcoming event.")
+    @app_commands.command(
+        name="trackmap",
+        description="Displays the track map for an event, or the next upcoming event.",
+    )
     @app_commands.autocomplete(event_name=event_autocomplete)
-    async def trackmap(self, interaction: discord.Interaction, event_name: Optional[str] = None):
+    async def trackmap(
+        self, interaction: discord.Interaction, event_name: Optional[str] = None
+    ):
         """Sends the specified track map image ephemerally."""
-        log.info(f"Command '/strategist trackmap' invoked by {interaction.user} for event: {event_name}")
+        log.info(
+            f"Command '/strategist trackmap' invoked by {interaction.user} for event: {event_name}"
+        )
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         file_path = None
@@ -144,8 +180,8 @@ class StrategistGroup(app_commands.Group):
         error_message = None
 
         try:
-            if event_name: 
-                # User specified an event name 
+            if event_name:
+                # User specified an event name
                 log.info(f"Fetching event data for: {event_name}")
                 target_event = fastf1.get_event(current_year, event_name)
             else:
@@ -157,24 +193,32 @@ class StrategistGroup(app_commands.Group):
                     target_event = remaining_events.iloc[0]
                     log.info(f"Found next upcoming event: {target_event['EventName']}")
                 else:
-                    log.warning(f"No upcoming races found for the {current_year} season after {now_utc}.")
+                    log.warning(
+                        f"No upcoming races found for the {current_year} season after {now_utc}."
+                    )
                     error_message = f"ℹ️ Couldn't find any upcoming F1 races scheduled for the rest of {current_year}."
-            
+
             if target_event.empty:
-                 error_message = f"❌ Could not find event '{event_name}'. Please check the name."
+                error_message = (
+                    f"❌ Could not find event '{event_name}'. Please check the name."
+                )
             else:
-                track_location = target_event['Location']
+                track_location = target_event["Location"]
                 file_path = os.path.join(TRACKS_DIR, f"{track_location}.png")
                 log.debug(f"Constructed track map path: {file_path}")
 
                 if not os.path.exists(file_path):
                     log.warning(f"Track map file not found at: {file_path}")
                     error_message = f"❌ Sorry, the track map for '{track_location}' is not available."
-                    file_path = None # Prevent attempt to send
+                    file_path = None  # Prevent attempt to send
 
         except Exception as e:
-            log.error(f"Unexpected error in '/strategist trackmap' setup: {e}", exc_info=True)
-            error_message = "❌ An unexpected error occurred while preparing the track map."
+            log.error(
+                f"Unexpected error in '/strategist trackmap' setup: {e}", exc_info=True
+            )
+            error_message = (
+                "❌ An unexpected error occurred while preparing the track map."
+            )
             file_path = None
 
         # --- Attempt to Send File or Error ---
@@ -184,12 +228,19 @@ class StrategistGroup(app_commands.Group):
                 log.info(f"Sending track map '{file_path}' to {interaction.user}")
                 await interaction.followup.send(file=discord_file)
             except Exception as e:
-                log.error(f"Error sending track map file '{file_path}': {e}", exc_info=True)
-                await interaction.followup.send("❌ An error occurred while sending the track map image.")
+                log.error(
+                    f"Error sending track map file '{file_path}': {e}", exc_info=True
+                )
+                await interaction.followup.send(
+                    "❌ An error occurred while sending the track map image."
+                )
         elif error_message:
             await interaction.followup.send(error_message)
 
-    @app_commands.command(name="pace", description="Generates a violin plot of lap times from all completed sessions for the current event.")
+    @app_commands.command(
+        name="pace",
+        description="Generates a violin plot of lap times from all completed sessions for the current event.",
+    )
     async def pace(self, interaction: discord.Interaction):
         """
         Generates and sends a violin plot illustrating the pace distribution
@@ -204,7 +255,9 @@ class StrategistGroup(app_commands.Group):
         # event to look at and which sessions have been completed.
         # - DriverList: Used to order drivers on the plot by their current standing.
         # - SessionInfo: Used to identify the current year, event, and session name.
-        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+        redis_client = redis.Redis(
+            host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
+        )
         driverList = await redis_client.json().get("DriverList")
         sessionInfo = await redis_client.json().get("SessionInfo")
 
@@ -214,40 +267,46 @@ class StrategistGroup(app_commands.Group):
         session_number_mapping = {
             "Practice 1": 1,
             "Practice 2": 2,
-            "Practice 3": 3, 
+            "Practice 3": 3,
             "Day 1": 1,
             "Day 2": 2,
             "Day 3": 3,
             "Sprint Qualifying": 2,
             "Sprint": 3,
             "Qualifying": 4,
-            "Race": 5
-
+            "Race": 5,
         }
         # Determine the parameters for fetching historical data. This identifies the
         # year, event number, and the latest *completed* session. If the current
         # session is still live ('Complete' != status), we subtract 1 to ensure
         # we only plot data from fully completed sessions.
-        session_idx ={
-            'year': int(datetime.datetime.strptime(sessionInfo['StartDate'], '%Y-%m-%dT%H:%M:%S').year),
-            'event': int(sessionInfo['Meeting']['Number']),
-            'session': int(session_number_mapping[sessionInfo['Name']]) - int( "Complete" != sessionInfo['ArchiveStatus']['Status'] )
+        session_idx = {
+            "year": int(
+                datetime.datetime.strptime(
+                    sessionInfo["StartDate"], "%Y-%m-%dT%H:%M:%S"
+                ).year
+            ),
+            "event": int(sessionInfo["Meeting"]["Number"]),
+            "session": int(session_number_mapping[sessionInfo["Name"]])
+            - int("Complete" != sessionInfo["ArchiveStatus"]["Status"]),
         }
-        
+
         # --- Caching ---
         # The plot is cached in Redis to avoid regenerating it on every request.
         # The cache key includes the year, event, and session to ensure it's unique.
         # The cache expires after 12 hours (43200 seconds).
         bio = io.BytesIO()
-        cached_bytes =  await redis_client.get(f"pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png")
+        cached_bytes = await redis_client.get(
+            f"pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
+        )
         if cached_bytes:
             bio = io.BytesIO(cached_bytes)
         else:
             # --- Historical Data Loading (FastF1) ---
             # Create a list of all completed FastF1 session objects for the current event.
             session_list = [
-                fastf1.get_session(session_idx['year'], session_idx['event'], i)
-                for i in range(1, 1 + session_idx['session'])
+                fastf1.get_session(session_idx["year"], session_idx["event"], i)
+                for i in range(1, 1 + session_idx["session"])
             ]
 
             # Load the data for each session. This can be time-consuming.
@@ -256,13 +315,20 @@ class StrategistGroup(app_commands.Group):
                 session.load(telemetry=False, weather=True, messages=True)
 
             if len(session_list) == 0:
-                await interaction.followup.send(content="No completed sessions available to generate a pace plot.")
+                await interaction.followup.send(
+                    content="No completed sessions available to generate a pace plot."
+                )
                 return
 
             # --- Data Aggregation & Cleaning ---
             # Get a list of driver numbers, sorted by their current position on the timing screen.
             # This ensures the plot's x-axis is ordered by the current race/quali standings.
-            drivers = [ key for key, _ in sorted( driverList.items(), key=lambda item: int(item[1]['Line']) )]
+            drivers = [
+                key
+                for key, _ in sorted(
+                    driverList.items(), key=lambda item: int(item[1]["Line"])
+                )
+            ]
 
             # For each session, get all valid laps for the specified drivers.
             # We apply several filters to ensure data quality:
@@ -276,7 +342,7 @@ class StrategistGroup(app_commands.Group):
                 .pick_wo_box()
                 .pick_not_deleted()
                 .pick_accurate()
-                .pick_track_status("1") # "1" is green flag
+                .pick_track_status("1")  # "1" is green flag
                 for session in session_list
             ]
             # Combine the laps from all sessions into a single pandas DataFrame.
@@ -285,7 +351,7 @@ class StrategistGroup(app_commands.Group):
 
             # --- Plotting Setup ---
             # Determine the order of drivers on the x-axis based on their current timing screen position.
-            driver_order = [driverList[i]['Tla'] for i in drivers]
+            driver_order = [driverList[i]["Tla"] for i in drivers]
 
             # Initialize the matplotlib figure and axes.
             fig, ax = plt.subplots(figsize=(21, 9))
@@ -296,87 +362,136 @@ class StrategistGroup(app_commands.Group):
 
             # --- Plotting ---
             # Create a color palette mapping each driver's TLA to their team color.
-            driver_palette = { value['Tla']: f"#{value['TeamColour']}" for key, value in driverList.items() }
+            driver_palette = {
+                value["Tla"]: f"#{value['TeamColour']}"
+                for key, value in driverList.items()
+            }
             # 1. Create the violin plot to show the distribution of lap times for each driver.
             #    This gives a good overview of each driver's pace consistency.
-            sns.violinplot(data=driver_laps,
-                        x="Driver", y="LapTime(s)", hue="Driver",
-                        inner=None, # Hides the inner box/stick plot inside the violin.
-                        density_norm="area", # Ensures violins have the same area.
-                        order=driver_order,
-                        palette=driver_palette
-                    )
+            sns.violinplot(
+                data=driver_laps,
+                x="Driver",
+                y="LapTime(s)",
+                hue="Driver",
+                inner=None,  # Hides the inner box/stick plot inside the violin.
+                density_norm="area",  # Ensures violins have the same area.
+                order=driver_order,
+                palette=driver_palette,
+            )
 
             # Create a color palette for tyre compounds.
-            tire_palette={'SOFT': '#da291c', 'MEDIUM': '#ffd12e', 'HARD': '#f0f0ec', 'INTERMEDIATE': '#43b02a', 'WET': '#0067ad', 'UNKNOWN': '#00ffff', 'TEST-UNKNOWN': '#434649'}
+            tire_palette = {
+                "SOFT": "#da291c",
+                "MEDIUM": "#ffd12e",
+                "HARD": "#f0f0ec",
+                "INTERMEDIATE": "#43b02a",
+                "WET": "#0067ad",
+                "UNKNOWN": "#00ffff",
+                "TEST-UNKNOWN": "#434649",
+            }
             # 2. Overlay a swarm plot to show each individual valid lap.
             #    Each point is colored by the tyre compound used for that lap, providing
             #    deeper insight into the pace on different compounds.
-            sns.swarmplot(data=driver_laps,
-                        x="Driver", y="LapTime(s)",
-                        order=driver_order,
-                        hue="Compound",
-                        palette=tire_palette,
-                        hue_order=["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"], # Fixed compound order
-                        linewidth=0,
-                        size=3,
-                    )
-            
+            sns.swarmplot(
+                data=driver_laps,
+                x="Driver",
+                y="LapTime(s)",
+                order=driver_order,
+                hue="Compound",
+                palette=tire_palette,
+                hue_order=[
+                    "WET",
+                    "INTERMEDIATE",
+                    "SOFT",
+                    "MEDIUM",
+                    "HARD",
+                ],  # Fixed compound order
+                linewidth=0,
+                size=3,
+            )
+
             # --- Image Generation & Caching ---
             # Save the generated plot to an in-memory binary stream (BytesIO).
             fig.savefig(bio, dpi=600, format="png")
             # Reset the stream's position to the beginning before reading.
             bio.seek(0)
             # Cache the newly generated plot in Redis.
-            await redis_client.set(f"pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png", bio.getvalue(), ex=43200)
-        
+            await redis_client.set(
+                f"pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
+                bio.getvalue(),
+                ex=43200,
+            )
+
         # --- Send Response ---
         # Create a discord.File object from the stream.
-        attachment = discord.File(bio, filename=f"pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png")
+        attachment = discord.File(
+            bio,
+            filename=f"pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
+        )
         # Send the file as a response to the interaction.
         await interaction.followup.send(file=attachment)
         return
 
-    @app_commands.command(name="driver_standing", description="World Driver Champion standing")
+    @app_commands.command(
+        name="driver_standing", description="World Driver Champion standing"
+    )
     async def driver_standing(self, interaction: discord.Interaction):
         """
         Displays the World Driver Championship standings for the current year,
         highlighting drivers still in contention based on remaining points.
         """
         # Get current driver standings from the Ergast API
-        driver_standings = Ergast().get_driver_standings(season=datetime.datetime.now(datetime.timezone.utc).year).content[0]
+        driver_standings = (
+            Ergast()
+            .get_driver_standings(
+                season=datetime.datetime.now(datetime.timezone.utc).year
+            )
+            .content[0]
+        )
 
         # Define points awarded for different race formats
         POINTS_FOR_CONVENTIONAL = 25  # Winning a conventional race
-        POINTS_FOR_SPRINT = 8 + 25  # Winning a sprint race (includes sprint race win and Sunday race win)
+        POINTS_FOR_SPRINT = (
+            8 + 25
+        )  # Winning a sprint race (includes sprint race win and Sunday race win)
 
         # Get remaining events in the current season
         events = fastf1.events.get_events_remaining(include_testing=True)
 
         # Calculate total possible points from remaining events based on their format
-        sprint_points = len(events.loc[events["EventFormat"] == "sprint_shootout"]) * POINTS_FOR_SPRINT
-        conventional_points = len(events.loc[events["EventFormat"] == "conventional"]) * POINTS_FOR_CONVENTIONAL
-        total_points_remaining = sprint_points + conventional_points  # Maximum points a driver can still earn
+        sprint_points = (
+            len(events.loc[events["EventFormat"] == "sprint_shootout"])
+            * POINTS_FOR_SPRINT
+        )
+        conventional_points = (
+            len(events.loc[events["EventFormat"] == "conventional"])
+            * POINTS_FOR_CONVENTIONAL
+        )
+        total_points_remaining = (
+            sprint_points + conventional_points
+        )  # Maximum points a driver can still earn
 
         # Determine the points of the current leader
-        LEADER_POINTS = int(driver_standings.loc[0]['points'])
+        LEADER_POINTS = int(driver_standings.loc[0]["points"])
 
         # Filter drivers into those still mathematically in contention for the championship and those out of contention
         driver_in_contention = driver_standings[
-            driver_standings['points'] >= LEADER_POINTS - total_points_remaining
-            ]
+            driver_standings["points"] >= LEADER_POINTS - total_points_remaining
+        ]
         driver_outof_contention = driver_standings[
-            driver_standings['points'] < LEADER_POINTS - total_points_remaining
-            ]
+            driver_standings["points"] < LEADER_POINTS - total_points_remaining
+        ]
 
         # Create a Discord embed for drivers still in contention
-        embed_in_contention = discord.Embed(title="World Driver Champion", color=discord.Color.gold())
+        embed_in_contention = discord.Embed(
+            title="World Driver Champion", color=discord.Color.gold()
+        )
         for _, driver in driver_in_contention.iterrows():
             embed_in_contention.add_field(
                 name=f"{driver['givenName']} {driver['familyName']}",
                 value=f"{driver['points']}",
-                inline=False
-                )
+                inline=False,
+            )
 
         # If there are drivers out of contention, create a separate embed for them
         if not driver_outof_contention.empty:
@@ -385,56 +500,77 @@ class StrategistGroup(app_commands.Group):
                 embed_outof_contention.add_field(
                     name=f"{driver['givenName']} {driver['familyName']}",
                     value=f"{driver['points']}",
-                    inline=False
-                    )
-            await interaction.response.send_message(
-                embeds=[embed_in_contention, embed_outof_contention],
-                ephemeral=True
+                    inline=False,
                 )
+            await interaction.response.send_message(
+                embeds=[embed_in_contention, embed_outof_contention], ephemeral=True
+            )
         else:
             # If all drivers are still in contention, send only the first embed
-            await interaction.response.send_message(embeds=[embed_in_contention], ephemeral=True)
+            await interaction.response.send_message(
+                embeds=[embed_in_contention], ephemeral=True
+            )
 
-    @app_commands.command(name="constructor_standing", description="World Constructor Champion standing")
+    @app_commands.command(
+        name="constructor_standing", description="World Constructor Champion standing"
+    )
     async def constructor_standing(self, interaction: discord.Interaction):
         """
         Displays the World Constructor Championship standings for the current year,
         highlighting constructors still in contention based on remaining points.
         """
         # Get current constructor standings from the Ergast API
-        constructor_standings = Ergast().get_constructor_standings(season=datetime.datetime.now(datetime.timezone.utc).year).content[0]
+        constructor_standings = (
+            Ergast()
+            .get_constructor_standings(
+                season=datetime.datetime.now(datetime.timezone.utc).year
+            )
+            .content[0]
+        )
 
         # Define points awarded for different race formats, considering both drivers' potential scores
         POINTS_FOR_CONVENTIONAL = 25 + 18  # Top two positions in a conventional race
-        POINTS_FOR_SPRINT = 8 + 7 + POINTS_FOR_CONVENTIONAL  # Points from sprint (for top 8) plus top two in the main race
+        POINTS_FOR_SPRINT = (
+            8 + 7 + POINTS_FOR_CONVENTIONAL
+        )  # Points from sprint (for top 8) plus top two in the main race
 
         # Get remaining events in the current season
         events = fastf1.events.get_events_remaining(include_testing=True)
 
         # Calculate total possible points from remaining events based on their format
-        sprint_points = len(events.loc[events["EventFormat"] == "sprint_shootout"]) * POINTS_FOR_SPRINT
-        conventional_points = len(events.loc[events["EventFormat"] == "conventional"]) * POINTS_FOR_CONVENTIONAL
-        total_points_remaining = sprint_points + conventional_points  # Maximum points a constructor can still earn
+        sprint_points = (
+            len(events.loc[events["EventFormat"] == "sprint_shootout"])
+            * POINTS_FOR_SPRINT
+        )
+        conventional_points = (
+            len(events.loc[events["EventFormat"] == "conventional"])
+            * POINTS_FOR_CONVENTIONAL
+        )
+        total_points_remaining = (
+            sprint_points + conventional_points
+        )  # Maximum points a constructor can still earn
 
         # Determine the points of the current leader
-        LEADER_POINTS = int(constructor_standings.loc[0]['points'])
+        LEADER_POINTS = int(constructor_standings.loc[0]["points"])
 
         # Filter constructors into those still mathematically in contention and those out of contention
         constructor_in_contention = constructor_standings[
-            constructor_standings['points'] >= LEADER_POINTS - total_points_remaining
-            ]
+            constructor_standings["points"] >= LEADER_POINTS - total_points_remaining
+        ]
         constructor_outof_contention = constructor_standings[
-            constructor_standings['points'] < LEADER_POINTS - total_points_remaining
-            ]
+            constructor_standings["points"] < LEADER_POINTS - total_points_remaining
+        ]
 
         # Create a Discord embed for constructors still in contention
-        embed_in_contention = discord.Embed(title="World Constructor Champion", color=discord.Color.gold())
+        embed_in_contention = discord.Embed(
+            title="World Constructor Champion", color=discord.Color.gold()
+        )
         for _, constructor in constructor_in_contention.iterrows():
             embed_in_contention.add_field(
                 name=f"{constructor['constructorName']}",
                 value=f"{constructor['points']}",
-                inline=False
-                )
+                inline=False,
+            )
 
         # If there are constructors out of contention, create a separate embed
         if not constructor_outof_contention.empty:
@@ -443,12 +579,13 @@ class StrategistGroup(app_commands.Group):
                 embed_outof_contention.add_field(
                     name=f"{constructor['constructorName']}",
                     value=f"{constructor['points']}",
-                    inline=False
-                    )
-            await interaction.response.send_message(
-                embeds=[embed_in_contention, embed_outof_contention],
-                ephemeral=True
+                    inline=False,
                 )
+            await interaction.response.send_message(
+                embeds=[embed_in_contention, embed_outof_contention], ephemeral=True
+            )
         else:
             # If all constructors are still in contention, send only the first embed
-            await interaction.response.send_message(embeds=[embed_in_contention], ephemeral=True)
+            await interaction.response.send_message(
+                embeds=[embed_in_contention], ephemeral=True
+            )

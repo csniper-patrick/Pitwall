@@ -23,29 +23,37 @@ def negotiate():
                 "clientProtocol": clientProtocol,
             },
         )
-        
-        return res.json(), res.headers, urllib.parse.urlencode(
+
+        return (
+            res.json(),
+            res.headers,
+            urllib.parse.urlencode(
+                {
+                    "clientProtocol": 1.5,
+                    "transport": "webSockets",
+                    "connectionToken": res.json()["ConnectionToken"],
+                    "connectionData": json.dumps([{"name": "Streaming"}]),
+                }
+            ),
             {
-                "clientProtocol": 1.5,
-                "transport": "webSockets",
-                "connectionToken": res.json()["ConnectionToken"],
-                "connectionData": json.dumps([{"name": "Streaming"}]),
-            }
-        ), {
-            "User-Agent": "BestHTTP",
-            "Accept-Encoding": "gzip,identity",
-            "Cookie": res.headers["Set-Cookie"],
-        }
-        
+                "User-Agent": "BestHTTP",
+                "Accept-Encoding": "gzip,identity",
+                "Cookie": res.headers["Set-Cookie"],
+            },
+        )
+
     except Exception as error:
         print(error)
 
+
 async def connectLiveTiming():
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+    redis_client = redis.Redis(
+        host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
+    )
     while True:
         data, headers, params, extra_headers = negotiate()
-        
-		# connect to redis 
+
+        # connect to redis
         async with websockets.connect(
             f"{websocketUrl}/connect?{params}",
             extra_headers=extra_headers,
@@ -57,12 +65,7 @@ async def connectLiveTiming():
                         {
                             "H": "Streaming",
                             "M": "Subscribe",
-                            "A": [
-                                [
-                                    "TyreStintSeries",
-                                    "CurrentTyres"
-                                ]
-                            ],
+                            "A": [["TyreStintSeries", "CurrentTyres"]],
                             "I": 1,
                         }
                     )
@@ -77,15 +80,21 @@ async def connectLiveTiming():
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
-                                channel, delta = msg["A"][0],  msg["A"][1]
+                                channel, delta = msg["A"][0], msg["A"][1]
                                 delta.pop("_kf", None)
                                 if channel == "Heartbeat":
                                     continue
-                                reference = await redis_client.json().get(channel) 
+                                reference = await redis_client.json().get(channel)
                                 reference = updateDictDelta(reference or {}, delta)
-                                asyncio.create_task( redis_client.json().set(channel, Path.root_path(), reference) )
+                                asyncio.create_task(
+                                    redis_client.json().set(
+                                        channel, Path.root_path(), reference
+                                    )
+                                )
                                 # publish message
-                                asyncio.create_task( redis_client.publish(channel, json.dumps(delta)) )
+                                asyncio.create_task(
+                                    redis_client.publish(channel, json.dumps(delta))
+                                )
 
             except Exception as error:
                 print(error)
@@ -93,6 +102,7 @@ async def connectLiveTiming():
                     continue
                 else:
                     break
+
 
 if __name__ == "__main__":
     asyncio.run(connectLiveTiming())

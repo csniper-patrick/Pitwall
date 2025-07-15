@@ -25,29 +25,37 @@ def negotiate():
                 "clientProtocol": clientProtocol,
             },
         )
-        
-        return res.json(), res.headers, urllib.parse.urlencode(
+
+        return (
+            res.json(),
+            res.headers,
+            urllib.parse.urlencode(
+                {
+                    "clientProtocol": 1.5,
+                    "transport": "webSockets",
+                    "connectionToken": res.json()["ConnectionToken"],
+                    "connectionData": json.dumps([{"name": "Streaming"}]),
+                }
+            ),
             {
-                "clientProtocol": 1.5,
-                "transport": "webSockets",
-                "connectionToken": res.json()["ConnectionToken"],
-                "connectionData": json.dumps([{"name": "Streaming"}]),
-            }
-        ), {
-            "User-Agent": "BestHTTP",
-            "Accept-Encoding": "gzip,identity",
-            "Cookie": res.headers["Set-Cookie"],
-        }
-        
+                "User-Agent": "BestHTTP",
+                "Accept-Encoding": "gzip,identity",
+                "Cookie": res.headers["Set-Cookie"],
+            },
+        )
+
     except Exception as error:
         print(error)
 
+
 async def connectLiveTiming():
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+    redis_client = redis.Redis(
+        host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
+    )
     while True:
         data, headers, params, extra_headers = negotiate()
-        
-		# connect to redis 
+
+        # connect to redis
         async with websockets.connect(
             f"{websocketUrl}/connect?{params}",
             extra_headers=extra_headers,
@@ -73,18 +81,37 @@ async def connectLiveTiming():
                     # update data structure (full)
                     if "R" in messages:
                         for key, value_zip in messages["R"].items():
-                            value = json.loads(zlib.decompress(base64.b64decode(value_zip), -zlib.MAX_WBITS))
+                            value = json.loads(
+                                zlib.decompress(
+                                    base64.b64decode(value_zip), -zlib.MAX_WBITS
+                                )
+                            )
                             value.pop("_kf", None)
-                            await redis_client.json().set(key.replace(".z",''), Path.root_path(), value)
+                            await redis_client.json().set(
+                                key.replace(".z", ""), Path.root_path(), value
+                            )
                     # update data structure (delta)
                     if "M" in messages:
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
-                                channel, value_zip = msg["A"][0].replace(".z",''),  msg["A"][1]
-                                value = json.loads(zlib.decompress(base64.b64decode(value_zip), -zlib.MAX_WBITS))
+                                channel, value_zip = (
+                                    msg["A"][0].replace(".z", ""),
+                                    msg["A"][1],
+                                )
+                                value = json.loads(
+                                    zlib.decompress(
+                                        base64.b64decode(value_zip), -zlib.MAX_WBITS
+                                    )
+                                )
                                 value.pop("_kf", None)
-                                asyncio.create_task(redis_client.json().set(channel, Path.root_path(), value))
-                                asyncio.create_task(redis_client.publish(channel, json.dumps(value)))
+                                asyncio.create_task(
+                                    redis_client.json().set(
+                                        channel, Path.root_path(), value
+                                    )
+                                )
+                                asyncio.create_task(
+                                    redis_client.publish(channel, json.dumps(value))
+                                )
 
             except Exception as error:
                 print(error)
@@ -92,7 +119,7 @@ async def connectLiveTiming():
                     continue
                 else:
                     break
-                
+
 
 if __name__ == "__main__":
     asyncio.run(connectLiveTiming())
