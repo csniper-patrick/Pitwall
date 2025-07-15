@@ -64,23 +64,30 @@ This is a continuation of the [Race Control Bot](https://gitlab.com/CSniper/race
 
 ### Architecture
 ```mermaid
-graph LR
-    M[discord channel]
-    subgraph live data
-        R{{redis}}
-    end
-    subgraph archived data
-        F{{fastf1}}
-    end
-    subgraph discord/command.py
-        E[class RaceEngineerGroup] <-- redis.get() --> R
-        S[class StrategistGroup] <-- query --> F
-    end
-    M -- slash command --> S
-    M -- slash command --> E
-    E -- response --> M
-    S -- response --> M
+sequenceDiagram
+    participant User as Discord User
+    participant Discord as Discord Channel
+    participant Command as command.py
+    participant RaceEngineer as RaceEngineerGroup
+    participant Strategist as StrategistGroup
+    participant Redis as Redis
+    participant FastF1 as FastF1
 
+    User->>Discord: /race-engineer ... or /strategist ...
+    Discord->>Command: invoke slash command
+    alt race-engineer command
+        Command->>RaceEngineer: execute command
+        RaceEngineer->>Redis: get live data
+        Redis-->>RaceEngineer: return data
+        RaceEngineer->>Discord: response
+        Discord->>User: show response (ephemeral)
+    else strategist command
+        Command->>Strategist: execute command
+        Strategist->>FastF1: query archived data
+        FastF1-->>Strategist: return data
+        Strategist->>Discord: response
+        Discord->>User: show response (ephemeral)
+    end
 ```
 
 ## Deployment
