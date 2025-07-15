@@ -380,6 +380,7 @@ class StrategistGroup(app_commands.Group):
                 density_norm="area",  # Ensures violins have the same area.
                 order=driver_order,
                 palette=driver_palette,
+                fill=False,
             )
 
             # Create a color palette for tyre compounds.
