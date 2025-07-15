@@ -1,6 +1,6 @@
 # Pitwall
 
-Pitwall is a discord bot that connect to the [live timing API](https://livetiming.formula1.com/) endpoint, process and push live messages into channel of your choice. It also provide a handful of slash commands for on demand infomation. 
+Pitwall is a discord bot that connect to the live timing API endpoint, process and push live messages into channel of your choice. It also provide a handful of slash commands for on demand infomation. 
 
 ## Push Messages
 | Message type | Available Session type | Description |
@@ -53,6 +53,8 @@ All slash command responses except `/pitwall-help` are ephemeral, meaning only y
 | `/strategist schedule` | `event_name` (optional) | Get the F1 schedule for an event, or the next upcoming event. |
 | `/strategist trackmap` | `event_name` (optional) | Displays the track map for an event, or the next upcoming event. |
 | `/strategist pace` | | Generates a violin plot of lap times from all completed sessions for the current event. |
+| `/strategist driver_standing` |  | World Driver Champion standing |
+| `/strategist constructor_standing` |  | World Constructor Champion standing |
 | **Race Engineer Commands** | | _Commands for the Race Engineer._ |
 | `/race-engineer tyres` | | Shows the current tyre compound and tyre age for all active drivers. |
 | `/race-engineer track_condition` | | Displays the current track status and weather conditions. |

@@ -436,6 +436,7 @@ class RaceEngineerGroup(app_commands.Group):
             ax.set_yticks([1, 5, 10, 15, 20])
             ax.set_xlabel("LAP")
             ax.set_ylabel("POS")
+            ax.grid(axis="x", linestyle="--")
 
             # --- Final Touches ---
             # Adjust layout to prevent labels from being cut off.

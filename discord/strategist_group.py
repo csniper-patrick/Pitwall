@@ -356,6 +356,9 @@ class StrategistGroup(app_commands.Group):
             # Initialize the matplotlib figure and axes.
             fig, ax = plt.subplots(figsize=(21, 9))
             fig.tight_layout()
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Driver")
+            ax.grid(axis="y", linestyle="--")
 
             # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
             driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
@@ -489,7 +492,7 @@ class StrategistGroup(app_commands.Group):
         for _, driver in driver_in_contention.iterrows():
             embed_in_contention.add_field(
                 name=f"{driver['givenName']} {driver['familyName']}",
-                value=f"{driver['points']}",
+                value=f"`{driver['points']}`",
                 inline=False,
             )
 
@@ -499,7 +502,7 @@ class StrategistGroup(app_commands.Group):
             for _, driver in driver_outof_contention.iterrows():
                 embed_outof_contention.add_field(
                     name=f"{driver['givenName']} {driver['familyName']}",
-                    value=f"{driver['points']}",
+                    value=f"`{driver['points']}`",
                     inline=False,
                 )
             await interaction.response.send_message(
@@ -568,7 +571,7 @@ class StrategistGroup(app_commands.Group):
         for _, constructor in constructor_in_contention.iterrows():
             embed_in_contention.add_field(
                 name=f"{constructor['constructorName']}",
-                value=f"{constructor['points']}",
+                value=f"`{constructor['points']}`",
                 inline=False,
             )
 
@@ -578,7 +581,7 @@ class StrategistGroup(app_commands.Group):
             for _, constructor in constructor_outof_contention.iterrows():
                 embed_outof_contention.add_field(
                     name=f"{constructor['constructorName']}",
-                    value=f"{constructor['points']}",
+                    value=f"`{constructor['points']}`",
                     inline=False,
                 )
             await interaction.response.send_message(
