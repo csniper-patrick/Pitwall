@@ -358,7 +358,7 @@ class StrategistGroup(app_commands.Group):
             fig.tight_layout()
             ax.set_xlabel("Driver")
             ax.set_ylabel("Lap Time")
-            ax.grid(axis="y", linestyle="--")
+            ax.grid(axis="y", linestyle="-")
 
             # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
             driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
@@ -379,6 +379,8 @@ class StrategistGroup(app_commands.Group):
                 order=driver_order,
                 palette=driver_palette,
                 fill=False,
+                showfliers=False,
+                legend=False,
             )
 
             # Create a color palette for tyre compounds.
@@ -391,6 +393,14 @@ class StrategistGroup(app_commands.Group):
                 "UNKNOWN": "#00ffff",
                 "TEST-UNKNOWN": "#434649",
             }
+
+            race_compounds = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
+            used_compounds = driver_laps[driver_laps["Compound"].isin(race_compounds)]
+            used_compounds = used_compounds["Compound"].unique()
+            used_compounds = sorted(
+                used_compounds, key=lambda x: race_compounds.index(x)
+            )
+
             # 2. Overlay a swarm plot to show each individual valid lap.
             #    Each point is colored by the tyre compound used for that lap, providing
             #    deeper insight into the pace on different compounds.
@@ -401,15 +411,10 @@ class StrategistGroup(app_commands.Group):
                 order=driver_order,
                 hue="Compound",
                 palette=tire_palette,
-                hue_order=[
-                    "WET",
-                    "INTERMEDIATE",
-                    "SOFT",
-                    "MEDIUM",
-                    "HARD",
-                ],  # Fixed compound order
+                hue_order=used_compounds,
                 linewidth=0,
                 size=3,
+                dodge=True,
             )
 
             # --- Image Generation & Caching ---
