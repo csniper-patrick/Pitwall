@@ -599,6 +599,7 @@ class StrategistGroup(app_commands.Group):
                 hue="Compound",
                 order=team_order,
                 palette=tire_palette,
+                hue_order=used_compounds,
                 fill=False,
                 showfliers=False,
                 legend=False,
