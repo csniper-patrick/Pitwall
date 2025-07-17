@@ -603,6 +603,7 @@ class StrategistGroup(app_commands.Group):
                 fill=False,
                 showfliers=False,
                 legend=False,
+                gap=0.1,
             )
 
             # 2. Overlay a swarm plot to show each individual valid lap.
