@@ -361,8 +361,28 @@ class StrategistGroup(app_commands.Group):
             ax.grid(axis="y", linestyle="--")
 
             # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
-            driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
+            # Create a color palette for tyre compounds.
+            tire_palette = {
+                "SOFT": "#da291c",
+                "MEDIUM": "#ffd12e",
+                "HARD": "#f0f0ec",
+                "INTERMEDIATE": "#43b02a",
+                "WET": "#0067ad",
+                "UNKNOWN": "#00ffff",
+                "TEST-UNKNOWN": "#434649",
+            }
 
+            race_compounds = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
+            driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
+            driver_laps = driver_laps[ driver_laps["Compound"].isin(race_compounds) ]
+            driver_laps = driver_laps[
+                (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
+                | (driver_laps["Compound"].isin(["WET", "INTERMEDIATE"]))
+            ]
+            used_compounds = sorted(
+                driver_laps["Compound"].unique(),
+                key=lambda x: race_compounds.index(x)
+            )
             # --- Plotting ---
             # Create a color palette mapping each driver's TLA to their team color.
             driver_palette = {
@@ -381,24 +401,6 @@ class StrategistGroup(app_commands.Group):
                 fill=False,
                 showfliers=False,
                 legend=False,
-            )
-
-            # Create a color palette for tyre compounds.
-            tire_palette = {
-                "SOFT": "#da291c",
-                "MEDIUM": "#ffd12e",
-                "HARD": "#f0f0ec",
-                "INTERMEDIATE": "#43b02a",
-                "WET": "#0067ad",
-                "UNKNOWN": "#00ffff",
-                "TEST-UNKNOWN": "#434649",
-            }
-
-            race_compounds = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
-            used_compounds = driver_laps[driver_laps["Compound"].isin(race_compounds)]
-            used_compounds = used_compounds["Compound"].unique()
-            used_compounds = sorted(
-                used_compounds, key=lambda x: race_compounds.index(x)
             )
 
             # 2. Overlay a swarm plot to show each individual valid lap.
@@ -557,34 +559,11 @@ class StrategistGroup(app_commands.Group):
             team_order = list(dict.fromkeys(driver_order))
 
             # Initialize the matplotlib figure and axes.
-            fig, ax = plt.subplots(figsize=(16, 9))
+            fig, ax = plt.subplots(figsize=(21, 9))
             fig.tight_layout()
             ax.set_xlabel("Team")
             ax.set_ylabel("Lap Time")
             ax.grid(axis="y", linestyle="--")
-
-            # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
-            driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
-
-            # --- Plotting ---
-            # Create a color palette mapping each driver's TLA to their team color.
-            team_palette = {
-                value["TeamName"]: f"#{value['TeamColour']}"
-                for key, value in driverList.items()
-            }
-            # 1. Create the violin plot to show the distribution of lap times for each driver.
-            #    This gives a good overview of each driver's pace consistency.
-            sns.boxplot(
-                data=driver_laps,
-                x="Team",
-                y="LapTime(s)",
-                hue="Team",
-                order=team_order,
-                palette=team_palette,
-                fill=False,
-                showfliers=False,
-                legend=False,
-            )
 
             # Create a color palette for tyre compounds.
             tire_palette = {
@@ -598,10 +577,31 @@ class StrategistGroup(app_commands.Group):
             }
 
             race_compounds = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
-            used_compounds = driver_laps[driver_laps["Compound"].isin(race_compounds)]
-            used_compounds = used_compounds["Compound"].unique()
+            driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
+            driver_laps = driver_laps[ driver_laps["Compound"].isin(race_compounds) ]
+            driver_laps = driver_laps[
+                (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
+                | (driver_laps["Compound"].isin(["WET", "INTERMEDIATE"]))
+            ]
             used_compounds = sorted(
-                used_compounds, key=lambda x: race_compounds.index(x)
+                driver_laps["Compound"].unique(),
+                key=lambda x: race_compounds.index(x)
+            )
+            # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
+
+            # # --- Plotting ---
+            # 1. Create the violin plot to show the distribution of lap times for each driver.
+            #    This gives a good overview of each driver's pace consistency.
+            sns.boxplot(
+                data=driver_laps,
+                x="Team",
+                y="LapTime(s)",
+                hue="Compound",
+                order=team_order,
+                palette=tire_palette,
+                fill=False,
+                showfliers=False,
+                legend=False,
             )
 
             # 2. Overlay a swarm plot to show each individual valid lap.
@@ -622,7 +622,7 @@ class StrategistGroup(app_commands.Group):
 
             # --- Image Generation & Caching ---
             # Save the generated plot to an in-memory binary stream (BytesIO).
-            fig.savefig(bio, dpi=700, format="png")
+            fig.savefig(bio, dpi=600, format="png")
             # Reset the stream's position to the beginning before reading.
             bio.seek(0)
             # Cache the newly generated plot in Redis.
