@@ -12,6 +12,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from typing import Optional
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgba
 import datetime
 import seaborn as sns
 import io
@@ -68,7 +69,7 @@ def pace_plot(plot_type, season, event, session, driverList):
         session.load(telemetry=False, weather=True, messages=True)
 
     if len(session_list) == 0:
-        return "No completed sessions available to generate a pace plot."
+        return None
     
     # --- Data Aggregation & Cleaning ---
     # Get a list of driver numbers, sorted by their current position on the timing screen.
@@ -79,6 +80,19 @@ def pace_plot(plot_type, season, event, session, driverList):
             driverList.items(), key=lambda item: int(item[1]["Line"])
         )
     ]
+
+    # Create a color palette for tyre compounds.
+    tire_palette = {
+        "WET": "#0067ad",
+        "INTERMEDIATE": "#43b02a",
+        "SOFT": "#da291c",
+        "MEDIUM": "#ffd12e",
+        "HARD": "#f0f0ec",
+        # "UNKNOWN": "#00ffff",
+        # "TEST-UNKNOWN": "#434649",
+    }
+    compounds = list(tire_palette.keys())
+
 
     # For each session, get all valid laps for the specified drivers.
     # We apply several filters to ensure data quality:
@@ -92,6 +106,7 @@ def pace_plot(plot_type, season, event, session, driverList):
         .pick_wo_box()
         .pick_not_deleted()
         .pick_accurate()
+        .pick_compounds(compounds)
         .pick_track_status("1")  # "1" is green flag
         for session in session_list
     ]
@@ -106,46 +121,37 @@ def pace_plot(plot_type, season, event, session, driverList):
 
     # Initialize the matplotlib figure and axes.
     fig, ax = plt.subplots(figsize=(21, 9))
-    fig.tight_layout()
+    fig.suptitle(f"{season} {event} {plot_type} pace")
     ax.set_xlabel("Driver")
     ax.set_ylabel("Lap Time")
     ax.grid(axis="y", linestyle="--")
+    fig.tight_layout()
 
     # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
-    # Create a color palette for tyre compounds.
-    tire_palette = {
-        "SOFT": "#da291c",
-        "MEDIUM": "#ffd12e",
-        "HARD": "#f0f0ec",
-        "INTERMEDIATE": "#43b02a",
-        "WET": "#0067ad",
-        "UNKNOWN": "#00ffff",
-        "TEST-UNKNOWN": "#434649",
-    }
-
-    race_compounds = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
+    
     driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
-    driver_laps = driver_laps[ driver_laps["Compound"].isin(race_compounds) ]
     driver_laps = driver_laps[
         (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
         | (driver_laps["Compound"].isin(["WET", "INTERMEDIATE"]))
     ]
     used_compounds = sorted(
         driver_laps["Compound"].unique(),
-        key=lambda x: race_compounds.index(x)
+        key=lambda x: compounds.index(x)
     )
     if plot_type == 'driver':
-        
         # --- Plotting ---
         # Create a color palette mapping each driver's TLA to their team color.
         driver_palette = {
             value["Tla"]: f"#{value['TeamColour']}"
-            for key, value in driverList.items()
+            for _, value in driverList.items()
         }
+        driver_palette_wet = { key: to_rgba(val, alpha=0.5) for key, val in driver_palette.items() }
+
         # 1. Create the violin plot to show the distribution of lap times for each driver.
         #    This gives a good overview of each driver's pace consistency.
+        # Dry Tires
         sns.boxplot(
-            data=driver_laps,
+            data=driver_laps[ driver_laps['Compound'].isin(['SOFT', 'MEDIUM', 'HARD']) ],
             x="Driver",
             y="LapTime(s)",
             hue="Driver",
@@ -154,6 +160,21 @@ def pace_plot(plot_type, season, event, session, driverList):
             fill=False,
             showfliers=False,
             legend=False,
+            saturation=1,
+        )
+
+        # Wet Tires
+        sns.boxplot(
+            data=driver_laps[ driver_laps['Compound'].isin(['WET', 'INTERMEDIATE']) ],
+            x="Driver",
+            y="LapTime(s)",
+            hue="Driver",
+            order=driver_order,
+            palette=driver_palette_wet,
+            fill=False,
+            showfliers=False,
+            legend=False,
+            # saturation=0.1,
         )
 
         # 2. Overlay a swarm plot to show each individual valid lap.
@@ -176,6 +197,7 @@ def pace_plot(plot_type, season, event, session, driverList):
         # # --- Plotting ---
         # 1. Create the violin plot to show the distribution of lap times for each driver.
         #    This gives a good overview of each driver's pace consistency.
+        # Dry Tires
         sns.boxplot(
             data=driver_laps,
             x="Team",
@@ -437,7 +459,7 @@ class StrategistGroup(app_commands.Group):
                     sessionInfo["StartDate"], "%Y-%m-%dT%H:%M:%S"
                 ).year
             ),
-            "event": int(sessionInfo["Meeting"]["Number"]),
+            "event": sessionInfo["Meeting"]["Name"],
             "session": int(session_number_mapping[sessionInfo["Name"]])
             - int("Complete" != sessionInfo["ArchiveStatus"]["Status"]),
         }
@@ -527,7 +549,7 @@ class StrategistGroup(app_commands.Group):
                     sessionInfo["StartDate"], "%Y-%m-%dT%H:%M:%S"
                 ).year
             ),
-            "event": int(sessionInfo["Meeting"]["Number"]),
+            "event": sessionInfo["Meeting"]["Name"],
             "session": int(session_number_mapping[sessionInfo["Name"]])
             - int("Complete" != sessionInfo["ArchiveStatus"]["Status"]),
         }
