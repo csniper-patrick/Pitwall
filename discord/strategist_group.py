@@ -54,7 +54,158 @@ async def event_autocomplete(
     log.debug(f"Event autocomplete for '{current}': Found {len(choices)} choices.")
     return choices
 
+def pace_plot(plot_type, season, event, session, driverList):
+    # --- Historical Data Loading (FastF1) ---
+    # Create a list of all completed FastF1 session objects for the current event.
+    session_list = [
+        fastf1.get_session(season, event, i)
+        for i in range(1, 1 + session)
+    ]
 
+    # Load the data for each session. This can be time-consuming.
+    # We disable telemetry loading as we only need lap data.
+    for session in session_list:
+        session.load(telemetry=False, weather=True, messages=True)
+
+    if len(session_list) == 0:
+        return "No completed sessions available to generate a pace plot."
+    
+    # --- Data Aggregation & Cleaning ---
+    # Get a list of driver numbers, sorted by their current position on the timing screen.
+    # This ensures the plot's x-axis is ordered by the current race/quali standings.
+    drivers = [
+        key
+        for key, _ in sorted(
+            driverList.items(), key=lambda item: int(item[1]["Line"])
+        )
+    ]
+
+    # For each session, get all valid laps for the specified drivers.
+    # We apply several filters to ensure data quality:
+    # - pick_drivers():       Selects laps only for the drivers currently on track.
+    # - pick_wo_box():        Excludes in-laps and out-laps.
+    # - pick_not_deleted():   Excludes laps invalidated by race control.
+    # - pick_accurate():      Excludes laps with inaccurate timing data.
+    # - pick_track_status("1"): Includes only laps set under green flag conditions ("1" is green flag).
+    driver_laps_per_session = [
+        session.laps.pick_drivers(drivers)
+        .pick_wo_box()
+        .pick_not_deleted()
+        .pick_accurate()
+        .pick_track_status("1")  # "1" is green flag
+        for session in session_list
+    ]
+    # Combine the laps from all sessions into a single pandas DataFrame.
+    driver_laps = pd.concat(driver_laps_per_session)
+    driver_laps = driver_laps.reset_index()
+
+    # --- Plotting Setup ---
+    # Determine the order of drivers on the x-axis based on their current timing screen position.
+    driver_order = [driverList[i]["Tla"] for i in drivers]
+    team_order = list(dict.fromkeys([driverList[i]["TeamName"] for i in drivers]))
+
+    # Initialize the matplotlib figure and axes.
+    fig, ax = plt.subplots(figsize=(21, 9))
+    fig.tight_layout()
+    ax.set_xlabel("Driver")
+    ax.set_ylabel("Lap Time")
+    ax.grid(axis="y", linestyle="--")
+
+    # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
+    # Create a color palette for tyre compounds.
+    tire_palette = {
+        "SOFT": "#da291c",
+        "MEDIUM": "#ffd12e",
+        "HARD": "#f0f0ec",
+        "INTERMEDIATE": "#43b02a",
+        "WET": "#0067ad",
+        "UNKNOWN": "#00ffff",
+        "TEST-UNKNOWN": "#434649",
+    }
+
+    race_compounds = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
+    driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
+    driver_laps = driver_laps[ driver_laps["Compound"].isin(race_compounds) ]
+    driver_laps = driver_laps[
+        (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
+        | (driver_laps["Compound"].isin(["WET", "INTERMEDIATE"]))
+    ]
+    used_compounds = sorted(
+        driver_laps["Compound"].unique(),
+        key=lambda x: race_compounds.index(x)
+    )
+    if plot_type == 'driver':
+        
+        # --- Plotting ---
+        # Create a color palette mapping each driver's TLA to their team color.
+        driver_palette = {
+            value["Tla"]: f"#{value['TeamColour']}"
+            for key, value in driverList.items()
+        }
+        # 1. Create the violin plot to show the distribution of lap times for each driver.
+        #    This gives a good overview of each driver's pace consistency.
+        sns.boxplot(
+            data=driver_laps,
+            x="Driver",
+            y="LapTime(s)",
+            hue="Driver",
+            order=driver_order,
+            palette=driver_palette,
+            fill=False,
+            showfliers=False,
+            legend=False,
+        )
+
+        # 2. Overlay a swarm plot to show each individual valid lap.
+        #    Each point is colored by the tyre compound used for that lap, providing
+        #    deeper insight into the pace on different compounds.
+        sns.swarmplot(
+            data=driver_laps,
+            x="Driver",
+            y="LapTime(s)",
+            order=driver_order,
+            hue="Compound",
+            palette=tire_palette,
+            hue_order=used_compounds,
+            linewidth=0,
+            size=3,
+            dodge=True,
+        )
+
+    elif plot_type == 'team':
+        # # --- Plotting ---
+        # 1. Create the violin plot to show the distribution of lap times for each driver.
+        #    This gives a good overview of each driver's pace consistency.
+        sns.boxplot(
+            data=driver_laps,
+            x="Team",
+            y="LapTime(s)",
+            hue="Compound",
+            order=team_order,
+            palette=tire_palette,
+            hue_order=used_compounds,
+            fill=False,
+            showfliers=False,
+            legend=False,
+            gap=0.1,
+        )
+
+        # 2. Overlay a swarm plot to show each individual valid lap.
+        #    Each point is colored by the tyre compound used for that lap, providing
+        #    deeper insight into the pace on different compounds.
+        sns.swarmplot(
+            data=driver_laps,
+            x="Team",
+            y="LapTime(s)",
+            order=team_order,
+            hue="Compound",
+            palette=tire_palette,
+            hue_order=used_compounds,
+            linewidth=0,
+            size=3,
+            dodge=True,
+        )
+    return fig
 class StrategistGroup(app_commands.Group):
     """
     Encapsulates commands related to Race Strategy.
@@ -302,122 +453,8 @@ class StrategistGroup(app_commands.Group):
         if cached_bytes:
             bio = io.BytesIO(cached_bytes)
         else:
-            # --- Historical Data Loading (FastF1) ---
-            # Create a list of all completed FastF1 session objects for the current event.
-            session_list = [
-                fastf1.get_session(session_idx["year"], session_idx["event"], i)
-                for i in range(1, 1 + session_idx["session"])
-            ]
 
-            # Load the data for each session. This can be time-consuming.
-            # We disable telemetry loading as we only need lap data.
-            for session in session_list:
-                session.load(telemetry=False, weather=True, messages=True)
-
-            if len(session_list) == 0:
-                await interaction.followup.send(
-                    content="No completed sessions available to generate a pace plot."
-                )
-                return
-
-            # --- Data Aggregation & Cleaning ---
-            # Get a list of driver numbers, sorted by their current position on the timing screen.
-            # This ensures the plot's x-axis is ordered by the current race/quali standings.
-            drivers = [
-                key
-                for key, _ in sorted(
-                    driverList.items(), key=lambda item: int(item[1]["Line"])
-                )
-            ]
-
-            # For each session, get all valid laps for the specified drivers.
-            # We apply several filters to ensure data quality:
-            # - pick_drivers():       Selects laps only for the drivers currently on track.
-            # - pick_wo_box():        Excludes in-laps and out-laps.
-            # - pick_not_deleted():   Excludes laps invalidated by race control.
-            # - pick_accurate():      Excludes laps with inaccurate timing data.
-            # - pick_track_status("1"): Includes only laps set under green flag conditions ("1" is green flag).
-            driver_laps_per_session = [
-                session.laps.pick_drivers(drivers)
-                .pick_wo_box()
-                .pick_not_deleted()
-                .pick_accurate()
-                .pick_track_status("1")  # "1" is green flag
-                for session in session_list
-            ]
-            # Combine the laps from all sessions into a single pandas DataFrame.
-            driver_laps = pd.concat(driver_laps_per_session)
-            driver_laps = driver_laps.reset_index()
-
-            # --- Plotting Setup ---
-            # Determine the order of drivers on the x-axis based on their current timing screen position.
-            driver_order = [driverList[i]["Tla"] for i in drivers]
-
-            # Initialize the matplotlib figure and axes.
-            fig, ax = plt.subplots(figsize=(21, 9))
-            fig.tight_layout()
-            ax.set_xlabel("Driver")
-            ax.set_ylabel("Lap Time")
-            ax.grid(axis="y", linestyle="--")
-
-            # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
-            # Create a color palette for tyre compounds.
-            tire_palette = {
-                "SOFT": "#da291c",
-                "MEDIUM": "#ffd12e",
-                "HARD": "#f0f0ec",
-                "INTERMEDIATE": "#43b02a",
-                "WET": "#0067ad",
-                "UNKNOWN": "#00ffff",
-                "TEST-UNKNOWN": "#434649",
-            }
-
-            race_compounds = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
-            driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
-            driver_laps = driver_laps[ driver_laps["Compound"].isin(race_compounds) ]
-            driver_laps = driver_laps[
-                (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
-                | (driver_laps["Compound"].isin(["WET", "INTERMEDIATE"]))
-            ]
-            used_compounds = sorted(
-                driver_laps["Compound"].unique(),
-                key=lambda x: race_compounds.index(x)
-            )
-            # --- Plotting ---
-            # Create a color palette mapping each driver's TLA to their team color.
-            driver_palette = {
-                value["Tla"]: f"#{value['TeamColour']}"
-                for key, value in driverList.items()
-            }
-            # 1. Create the violin plot to show the distribution of lap times for each driver.
-            #    This gives a good overview of each driver's pace consistency.
-            sns.boxplot(
-                data=driver_laps,
-                x="Driver",
-                y="LapTime(s)",
-                hue="Driver",
-                order=driver_order,
-                palette=driver_palette,
-                fill=False,
-                showfliers=False,
-                legend=False,
-            )
-
-            # 2. Overlay a swarm plot to show each individual valid lap.
-            #    Each point is colored by the tyre compound used for that lap, providing
-            #    deeper insight into the pace on different compounds.
-            sns.swarmplot(
-                data=driver_laps,
-                x="Driver",
-                y="LapTime(s)",
-                order=driver_order,
-                hue="Compound",
-                palette=tire_palette,
-                hue_order=used_compounds,
-                linewidth=0,
-                size=3,
-                dodge=True,
-            )
+            fig = pace_plot('driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList)
 
             # --- Image Generation & Caching ---
             # Save the generated plot to an in-memory binary stream (BytesIO).
@@ -506,121 +543,8 @@ class StrategistGroup(app_commands.Group):
         if cached_bytes:
             bio = io.BytesIO(cached_bytes)
         else:
-            # --- Historical Data Loading (FastF1) ---
-            # Create a list of all completed FastF1 session objects for the current event.
-            session_list = [
-                fastf1.get_session(session_idx["year"], session_idx["event"], i)
-                for i in range(1, 1 + session_idx["session"])
-            ]
-
-            # Load the data for each session. This can be time-consuming.
-            # We disable telemetry loading as we only need lap data.
-            for session in session_list:
-                session.load(telemetry=False, weather=True, messages=True)
-
-            if len(session_list) == 0:
-                await interaction.followup.send(
-                    content="No completed sessions available to generate a pace plot."
-                )
-                return
-
-            # --- Data Aggregation & Cleaning ---
-            # Get a list of driver numbers, sorted by their current position on the timing screen.
-            # This ensures the plot's x-axis is ordered by the current race/quali standings.
-            drivers = [
-                key
-                for key, _ in sorted(
-                    driverList.items(), key=lambda item: int(item[1]["Line"])
-                )
-            ]
-
-            # For each session, get all valid laps for the specified drivers.
-            # We apply several filters to ensure data quality:
-            # - pick_drivers():       Selects laps only for the drivers currently on track.
-            # - pick_wo_box():        Excludes in-laps and out-laps.
-            # - pick_not_deleted():   Excludes laps invalidated by race control.
-            # - pick_accurate():      Excludes laps with inaccurate timing data.
-            # - pick_track_status("1"): Includes only laps set under green flag conditions ("1" is green flag).
-            driver_laps_per_session = [
-                session.laps.pick_drivers(drivers)
-                .pick_wo_box()
-                .pick_not_deleted()
-                .pick_accurate()
-                .pick_track_status("1")  # "1" is green flag
-                for session in session_list
-            ]
-            # Combine the laps from all sessions into a single pandas DataFrame.
-            driver_laps = pd.concat(driver_laps_per_session)
-            driver_laps = driver_laps.reset_index()
-
-            # --- Plotting Setup ---
-            # Determine the order of drivers on the x-axis based on their current timing screen position.
-            driver_order = [driverList[i]["TeamName"] for i in drivers]
-            team_order = list(dict.fromkeys(driver_order))
-
-            # Initialize the matplotlib figure and axes.
-            fig, ax = plt.subplots(figsize=(21, 9))
-            fig.tight_layout()
-            ax.set_xlabel("Team")
-            ax.set_ylabel("Lap Time")
-            ax.grid(axis="y", linestyle="--")
-
-            # Create a color palette for tyre compounds.
-            tire_palette = {
-                "SOFT": "#da291c",
-                "MEDIUM": "#ffd12e",
-                "HARD": "#f0f0ec",
-                "INTERMEDIATE": "#43b02a",
-                "WET": "#0067ad",
-                "UNKNOWN": "#00ffff",
-                "TEST-UNKNOWN": "#434649",
-            }
-
-            race_compounds = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
-            driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
-            driver_laps = driver_laps[ driver_laps["Compound"].isin(race_compounds) ]
-            driver_laps = driver_laps[
-                (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
-                | (driver_laps["Compound"].isin(["WET", "INTERMEDIATE"]))
-            ]
-            used_compounds = sorted(
-                driver_laps["Compound"].unique(),
-                key=lambda x: race_compounds.index(x)
-            )
-            # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
-
-            # # --- Plotting ---
-            # 1. Create the violin plot to show the distribution of lap times for each driver.
-            #    This gives a good overview of each driver's pace consistency.
-            sns.boxplot(
-                data=driver_laps,
-                x="Team",
-                y="LapTime(s)",
-                hue="Compound",
-                order=team_order,
-                palette=tire_palette,
-                hue_order=used_compounds,
-                fill=False,
-                showfliers=False,
-                legend=False,
-                gap=0.1,
-            )
-
-            # 2. Overlay a swarm plot to show each individual valid lap.
-            #    Each point is colored by the tyre compound used for that lap, providing
-            #    deeper insight into the pace on different compounds.
-            sns.swarmplot(
-                data=driver_laps,
-                x="Team",
-                y="LapTime(s)",
-                order=team_order,
-                hue="Compound",
-                palette=tire_palette,
-                hue_order=used_compounds,
-                linewidth=0,
-                size=3,
-                dodge=True,
-            )
+            
+            fig = pace_plot('team', session_idx['year'], session_idx['event'], session_idx['session'], driverList)
 
             # --- Image Generation & Caching ---
             # Save the generated plot to an in-memory binary stream (BytesIO).
