@@ -1,22 +1,26 @@
 # strategist_group.py
 
+# Standard library imports
+import datetime
+import io
+import logging
+import os
+from typing import Optional
+
+# Third-party imports
 import discord
 from discord import app_commands
-import os
+from dotenv import load_dotenv
 import fastf1
 import fastf1.plotting
 from fastf1.ergast import Ergast
-import datetime
-import logging
-import pandas as pd
-from dotenv import load_dotenv
-from typing import Optional
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgba
-import datetime
-import seaborn as sns
-import io
+import pandas as pd
 import redis.asyncio as redis
+import seaborn as sns
+
+# Local application imports
 from utils import *
 
 # Get a logger instance for this module
@@ -82,34 +86,28 @@ def pace_plot(plot_type, season, event, session, driverList):
     ]
 
     # Create a color palette for tyre compounds.
-    tire_palette = {
-        "WET": "#0067ad",
-        "INTERMEDIATE": "#43b02a",
-        "SOFT": "#da291c",
-        "MEDIUM": "#ffd12e",
-        "HARD": "#f0f0ec",
-        # "UNKNOWN": "#00ffff",
-        # "TEST-UNKNOWN": "#434649",
-    }
+    tire_palette = msgStyle["compoundRGB"]
     compounds = list(tire_palette.keys())
 
-
-    # For each session, get all valid laps for the specified drivers.
-    # We apply several filters to ensure data quality:
-    # - pick_drivers():       Selects laps only for the drivers currently on track.
-    # - pick_wo_box():        Excludes in-laps and out-laps.
-    # - pick_not_deleted():   Excludes laps invalidated by race control.
-    # - pick_accurate():      Excludes laps with inaccurate timing data.
-    # - pick_track_status("1"): Includes only laps set under green flag conditions ("1" is green flag).
+    # For each session, aggregate all valid laps for the specified drivers.
+    # A chain of FastF1 filters is applied to ensure data quality and relevance:
+    # - pick_drivers():     Selects laps only for the drivers currently on track.
+    # - pick_wo_box():      Excludes in-laps and out-laps (laps entering/leaving pits).
+    # - pick_not_deleted(): Excludes laps invalidated by race control (e.g., for track limits).
+    # - pick_accurate():    Excludes laps with known timing inaccuracies.
+    # - pick_compounds():   Includes only laps set on standard race compounds (W, I, S, M, H).
+    # - pick_track_status("1"): Includes only laps set under green flag conditions.
     driver_laps_per_session = [
         session.laps.pick_drivers(drivers)
         .pick_wo_box()
         .pick_not_deleted()
         .pick_accurate()
         .pick_compounds(compounds)
-        .pick_track_status("1")  # "1" is green flag
+        .pick_track_status("1")
         for session in session_list
     ]
+    for idx, session_laps in enumerate(driver_laps_per_session):
+        session_laps["Session_Type"] = session_list[idx].session_info['Type']
     # Combine the laps from all sessions into a single pandas DataFrame.
     driver_laps = pd.concat(driver_laps_per_session)
     driver_laps = driver_laps.reset_index()
@@ -132,7 +130,7 @@ def pace_plot(plot_type, season, event, session, driverList):
     driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
     driver_laps = driver_laps[
         (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
-        | (driver_laps["Compound"].isin(["WET", "INTERMEDIATE"]))
+        | (driver_laps["Session_Type"] == "Race")
     ]
     used_compounds = sorted(
         driver_laps["Compound"].unique(),
@@ -477,6 +475,11 @@ class StrategistGroup(app_commands.Group):
         else:
 
             fig = pace_plot('driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList)
+            if fig is None:
+                await interaction.followup.send(
+                    content="No completed sessions available to generate a pace plot."
+                )
+                return
 
             # --- Image Generation & Caching ---
             # Save the generated plot to an in-memory binary stream (BytesIO).
@@ -567,7 +570,13 @@ class StrategistGroup(app_commands.Group):
         else:
             
             fig = pace_plot('team', session_idx['year'], session_idx['event'], session_idx['session'], driverList)
-
+            
+            if fig is None:
+                await interaction.followup.send(
+                    content="No completed sessions available to generate a pace plot."
+                )
+                return
+            
             # --- Image Generation & Caching ---
             # Save the generated plot to an in-memory binary stream (BytesIO).
             fig.savefig(bio, dpi=600, format="png")
