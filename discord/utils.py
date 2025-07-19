@@ -49,6 +49,15 @@ def load_config() -> Tuple[str, str, Dict[str, Any], str, int, str, bool]:
             "INTERMEDIATE": 2067276,  # GREEN
             "WET": 2123412,  # BLUE
         },
+        "compoundRGB": {
+            "WET": "#0067ad",
+            "INTERMEDIATE": "#43b02a",
+            "SOFT": "#da291c",
+            "MEDIUM": "#ffd12e",
+            "HARD": "#f0f0ec",
+            # "UNKNOWN": "#00ffff",
+            # "TEST-UNKNOWN": "#434649",
+        },
         "compoundSymbol": {},
         "raceDirector": "Race Director",
     }
