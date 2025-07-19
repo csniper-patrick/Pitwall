@@ -17,6 +17,7 @@ from fastf1.ergast import Ergast
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgba
 import pandas as pd
+import numpy as np
 import redis.asyncio as redis
 import seaborn as sns
 
@@ -123,10 +124,11 @@ def pace_plot(plot_type, season, event, session, driverList):
     ax.set_xlabel("Driver")
     ax.set_ylabel("Lap Time")
     ax.grid(axis="y", linestyle="--")
+    ax.set_xticks(np.arange(-0.5, 30, 1), minor=True)
+    ax.grid(which="minor", axis="x", linestyle="--")
     fig.tight_layout()
 
     # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
-    
     driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
     driver_laps = driver_laps[
         (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
