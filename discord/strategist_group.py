@@ -76,7 +76,7 @@ def pace_plot(plot_type, season, event, session, driverList):
 
     if len(session_list) == 0:
         return None
-    
+
     # --- Data Aggregation & Cleaning ---
     # Get a list of driver numbers, sorted by their current position on the timing screen.
     # This ensures the plot's x-axis is ordered by the current race/quali standings.
@@ -121,7 +121,7 @@ def pace_plot(plot_type, season, event, session, driverList):
 
     # Initialize the matplotlib figure and axes.
     fig, ax = plt.subplots(figsize=(21, 9))
-    fig.suptitle(f"{season} {event} {plot_type} pace")
+    fig.suptitle(f"{season} {event} {plot_type} pace".title())
     ax.set_xlabel("Driver")
     ax.set_ylabel("Lap Time")
     ax.grid(axis="y", linestyle="--")
