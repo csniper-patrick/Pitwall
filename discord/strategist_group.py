@@ -16,6 +16,7 @@ import fastf1.plotting
 from fastf1.ergast import Ergast
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgba
+import matplotlib.ticker as tick
 import pandas as pd
 import numpy as np
 import redis.asyncio as redis
@@ -126,6 +127,8 @@ def pace_plot(plot_type, season, event, session, driverList):
     ax.grid(axis="y", linestyle="--")
     ax.set_xticks(np.arange(-0.5, 30, 1), minor=True)
     ax.grid(which="minor", axis="x", linestyle="--")
+    time_formatter = tick.FuncFormatter( lambda x, y: f"{int(x//60)}:{int(x%60):02}")
+    ax.yaxis.set_major_formatter(time_formatter)
     fig.tight_layout()
 
     # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
