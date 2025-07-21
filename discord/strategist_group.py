@@ -37,7 +37,6 @@ fastf1.plotting.setup_mpl(color_scheme="fastf1")
 # This directory constant is needed for the trackmap command
 TRACKS_DIR = "data/tracks"
 
-
 async def event_autocomplete(
     interaction: discord.Interaction, current: str
 ) -> list[app_commands.Choice[str]]:
@@ -234,6 +233,7 @@ def pace_plot(plot_type, season, event, session, driverList):
             dodge=True,
         )
     return fig
+
 class StrategistGroup(app_commands.Group):
     """
     Encapsulates commands related to Race Strategy.
