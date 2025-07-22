@@ -117,6 +117,17 @@ def pace_plot(plot_type, season, event, session, driverList):
     # Determine the order of drivers on the x-axis based on their current timing screen position.
     driver_order = [driverList[i]["Tla"] for i in drivers]
     team_order = list(dict.fromkeys([driverList[i]["TeamName"] for i in drivers]))
+    # Create a color palette mapping each driver's TLA to their team color.
+    driver_palette = {
+        value["Tla"]: f"#{value['TeamColour']}"
+        for _, value in driverList.items()
+    }
+    driver_palette_wet = { key: to_rgba(val, alpha=0.5) for key, val in driver_palette.items() }
+    session_type_marker = {
+        "Race": "o",
+        "Qualifying": "s",
+        "Practice": "X",
+    }
 
     # Initialize the matplotlib figure and axes.
     fig, ax = plt.subplots(figsize=(21, 9))
@@ -139,19 +150,13 @@ def pace_plot(plot_type, season, event, session, driverList):
         (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
         | (driver_laps["Session_Type"] == "Race")
     ]
+
     used_compounds = sorted(
         driver_laps["Compound"].unique(),
         key=lambda x: compounds.index(x)
     )
-    if plot_type == 'driver':
-        # --- Plotting ---
-        # Create a color palette mapping each driver's TLA to their team color.
-        driver_palette = {
-            value["Tla"]: f"#{value['TeamColour']}"
-            for _, value in driverList.items()
-        }
-        driver_palette_wet = { key: to_rgba(val, alpha=0.5) for key, val in driver_palette.items() }
 
+    if plot_type == 'driver':
         # 1. Create the violin plot to show the distribution of lap times for each driver.
         #    This gives a good overview of each driver's pace consistency.
         # Dry Tires
@@ -185,19 +190,21 @@ def pace_plot(plot_type, season, event, session, driverList):
         # 2. Overlay a swarm plot to show each individual valid lap.
         #    Each point is colored by the tyre compound used for that lap, providing
         #    deeper insight into the pace on different compounds.
-        sns.swarmplot(
-            data=driver_laps,
-            x="Driver",
-            y="LapTime(s)",
-            order=driver_order,
-            hue="Compound",
-            palette=tire_palette,
-            hue_order=used_compounds,
-            linewidth=0,
-            size=3,
-            dodge=True,
-        )
-
+        for session_type, marker in session_type_marker.items():
+            sns.swarmplot(
+                data=driver_laps[ driver_laps['Session_Type'] == session_type ],
+                x="Driver",
+                y="LapTime(s)",
+                order=driver_order,
+                hue="Compound",
+                palette=tire_palette,
+                hue_order=used_compounds,
+                linewidth=0,
+                size=5,
+                marker=marker,
+                dodge=True,
+                legend=False,
+            )
     elif plot_type == 'team':
         # # --- Plotting ---
         # 1. Create the violin plot to show the distribution of lap times for each driver.
@@ -220,18 +227,21 @@ def pace_plot(plot_type, season, event, session, driverList):
         # 2. Overlay a swarm plot to show each individual valid lap.
         #    Each point is colored by the tyre compound used for that lap, providing
         #    deeper insight into the pace on different compounds.
-        sns.swarmplot(
-            data=driver_laps,
-            x="Team",
-            y="LapTime(s)",
-            order=team_order,
-            hue="Compound",
-            palette=tire_palette,
-            hue_order=used_compounds,
-            linewidth=0,
-            size=3,
-            dodge=True,
-        )
+        for session_type, marker in session_type_marker.items():
+            sns.swarmplot(
+                data=driver_laps[ driver_laps['Session_Type'] == session_type ],
+                x="Team",
+                y="LapTime(s)",
+                order=team_order,
+                hue="Compound",
+                palette=tire_palette,
+                hue_order=used_compounds,
+                linewidth=0,
+                size=5,
+                marker=marker,
+                dodge=True,
+                legend=False,
+            )
     return fig
 
 class StrategistGroup(app_commands.Group):
