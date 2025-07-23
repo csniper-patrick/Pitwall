@@ -60,12 +60,12 @@ async def event_autocomplete(
     log.debug(f"Event autocomplete for '{current}': Found {len(choices)} choices.")
     return choices
 
-def pace_plot(plot_type, season, event, session, driverList):
+def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
     # --- Historical Data Loading (FastF1) ---
     # Create a list of all completed FastF1 session objects for the current event.
     session_list = [
-        fastf1.get_session(season, event, i)
-        for i in range(1, 1 + session)
+        fastf1.get_session(season_idx, event_idx, i)
+        for i in range(1, 1 + session_idx)
     ]
 
     # Load the data for each session. This can be time-consuming.
@@ -109,6 +109,7 @@ def pace_plot(plot_type, season, event, session, driverList):
     ]
     for idx, session_laps in enumerate(driver_laps_per_session):
         session_laps["Session_Type"] = session_list[idx].session_info['Type']
+        session_laps['Session_Number'] = idx
     # Combine the laps from all sessions into a single pandas DataFrame.
     driver_laps = pd.concat(driver_laps_per_session)
     driver_laps = driver_laps.reset_index()
@@ -131,7 +132,7 @@ def pace_plot(plot_type, season, event, session, driverList):
 
     # Initialize the matplotlib figure and axes.
     fig, ax = plt.subplots(figsize=(21, 9))
-    fig.suptitle(f"{season} {event} {plot_type} pace".title())
+    fig.suptitle(f"{season_idx} {event_idx} {plot_type} pace".title())
     ax.set_xlabel("Driver")
     ax.set_ylabel("Lap Time")
     # ax.grid(axis="y", linestyle="--")
@@ -190,14 +191,17 @@ def pace_plot(plot_type, season, event, session, driverList):
         # 2. Overlay a swarm plot to show each individual valid lap.
         #    Each point is colored by the tyre compound used for that lap, providing
         #    deeper insight into the pace on different compounds.
-        for session_type, marker in session_type_marker.items():
+        for session_no in range(session_idx):
+            session_type = session_list[session_no].session_info['Type']
+            marker = session_type_marker[session_type]
+            tire_palette_adj = { key: to_rgba(val, alpha=(session_no + 1.)/session_idx) for key, val in tire_palette.items() }
             sns.swarmplot(
-                data=driver_laps[ driver_laps['Session_Type'] == session_type ],
+                data=driver_laps[ driver_laps['Session_Number'] == session_no ],
                 x="Driver",
                 y="LapTime(s)",
                 order=driver_order,
                 hue="Compound",
-                palette=tire_palette,
+                palette=tire_palette_adj,
                 hue_order=used_compounds,
                 linewidth=0,
                 size=5,
@@ -227,14 +231,17 @@ def pace_plot(plot_type, season, event, session, driverList):
         # 2. Overlay a swarm plot to show each individual valid lap.
         #    Each point is colored by the tyre compound used for that lap, providing
         #    deeper insight into the pace on different compounds.
-        for session_type, marker in session_type_marker.items():
+        for session_no in range(session_idx):
+            session_type = session_list[session_no].session_info['Type']
+            marker = session_type_marker[session_type]
+            tire_palette_adj = { key: to_rgba(val, alpha=(session_no + 1.)/session_idx) for key, val in tire_palette.items() }
             sns.swarmplot(
-                data=driver_laps[ driver_laps['Session_Type'] == session_type ],
+                data=driver_laps[ driver_laps['Session_Number'] == session_no ],
                 x="Team",
                 y="LapTime(s)",
                 order=team_order,
                 hue="Compound",
-                palette=tire_palette,
+                palette=tire_palette_adj,
                 hue_order=used_compounds,
                 linewidth=0,
                 size=5,
