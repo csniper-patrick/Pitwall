@@ -1,4 +1,13 @@
 # strategist_group.py
+"""
+This module defines the Discord bot commands related to race strategy for the Pitwall application.
+It includes commands for retrieving F1 schedules, track maps, driver/team pace analysis,
+and championship standings. The commands are organized under the '/strategist' slash
+command group.
+
+The module uses fastf1 for historical F1 data, Redis for caching and live data,
+and Matplotlib/Seaborn for generating plots.
+"""
 
 # Standard library imports
 import datetime
@@ -40,9 +49,18 @@ TRACKS_DIR = "data/tracks"
 async def event_autocomplete(
     interaction: discord.Interaction, current: str
 ) -> list[app_commands.Choice[str]]:
-    """
-    Provides autocomplete suggestions for F1 event names in the current season.
-    This function is called by Discord as the user types in a command option.
+    """Provide autocomplete suggestions for F1 event names.
+
+    This function is called by Discord as a user types in the 'event_name' option
+    for a slash command. It fetches the current season's schedule from fastf1
+    and returns a list of matching event names.
+
+    Args:
+        interaction: The Discord interaction object.
+        current: The current string the user has typed.
+
+    Returns:
+        A list of app_commands.Choice objects for autocomplete.
     """
     choices = []
     try:
@@ -61,6 +79,25 @@ async def event_autocomplete(
     return choices
 
 def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
+    """
+    Generates a pace analysis plot for drivers or teams.
+
+    This function fetches lap data from completed sessions of a given F1 event,
+    processes it, and creates a box plot overlaid with a swarm plot to visualize
+    lap time distributions. The plot can be grouped by driver or by team.
+
+    Args:
+        plot_type (str): The type of plot to generate, either 'driver' or 'team'.
+        season_idx (int): The year of the season.
+        event_idx (str or int): The name or round number of the event.
+        session_idx (int): The number of the last completed session to include data from.
+        driverList (dict): A dictionary of live driver data from Redis, used for
+                           ordering and team color information.
+
+    Returns:
+        matplotlib.figure.Figure or None: The generated plot figure, or None if
+                                          no data is available.
+    """
     # --- Historical Data Loading (FastF1) ---
     # Create a list of all completed FastF1 session objects for the current event.
     session_list = [
@@ -158,7 +195,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
     )
 
     if plot_type == 'driver':
-        # 1. Create the violin plot to show the distribution of lap times for each driver.
+        # 1. Create the box plot to show the distribution of lap times for each driver.
         #    This gives a good overview of each driver's pace consistency.
         # Dry Tires
         sns.boxplot(
@@ -210,9 +247,9 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
                 legend=False,
             )
     elif plot_type == 'team':
-        # # --- Plotting ---
-        # 1. Create the violin plot to show the distribution of lap times for each driver.
-        #    This gives a good overview of each driver's pace consistency.
+        # --- Plotting ---
+        # 1. Create the box plot to show the distribution of lap times for each team.
+        #    This gives a good overview of each team's pace consistency.
         # Dry Tires
         sns.boxplot(
             data=driver_laps,
@@ -252,10 +289,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
     return fig
 
 class StrategistGroup(app_commands.Group):
-    """
-    Encapsulates commands related to Race Strategy.
-    This class defines a slash command group for Discord.
-    """
+    """A Discord slash command group for all strategist-related commands."""
 
     def __init__(self):
         # Initialize the command group with a name and description
@@ -270,7 +304,17 @@ class StrategistGroup(app_commands.Group):
     async def schedule(
         self, interaction: discord.Interaction, event_name: Optional[str] = None
     ):
-        """Fetches and displays F1 schedule: specific event if name provided, otherwise the next one."""
+        """
+        Fetches and displays the F1 schedule for a given event.
+
+        If an event name is provided, it shows the schedule for that specific event.
+        If no event name is provided, it displays the schedule for the next upcoming event
+        in the current season.
+
+        Args:
+            interaction: The Discord interaction object.
+            event_name: The name of the F1 event (optional).
+        """
         log.info(
             f"Command '/strategist schedule' invoked by {interaction.user} (Event: {event_name or 'Next Upcoming'})"
         )
@@ -365,7 +409,17 @@ class StrategistGroup(app_commands.Group):
     async def trackmap(
         self, interaction: discord.Interaction, event_name: Optional[str] = None
     ):
-        """Sends the specified track map image ephemerally."""
+        """
+        Displays the track map for a given F1 event.
+
+        If an event name is provided, it shows the track map for that event.
+        If no event name is provided, it displays the map for the next upcoming event.
+        The track map images are stored locally.
+
+        Args:
+            interaction: The Discord interaction object.
+            event_name: The name of the F1 event (optional).
+        """
         log.info(
             f"Command '/strategist trackmap' invoked by {interaction.user} for event: {event_name}"
         )
@@ -439,10 +493,15 @@ class StrategistGroup(app_commands.Group):
     )
     async def driver_pace(self, interaction: discord.Interaction):
         """
-        Generates and sends a box plot illustrating the pace distribution
-        of each driver across all completed sessions of the current event.
-        Each point on the plot represents a valid lap, colored by the tyre
-        compound used.
+        Generates and sends a box plot of driver pace for the current event.
+
+        The plot shows the distribution of valid lap times for each driver across all
+        completed sessions of the current race weekend. Individual laps are plotted
+        as points, colored by the tyre compound used. The plot is cached in Redis
+        to reduce regeneration time.
+
+        Args:
+            interaction: The Discord interaction object.
         """
         log.info(f"Command '/strategist driver_pace' invoked by {interaction.user}")
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -534,10 +593,15 @@ class StrategistGroup(app_commands.Group):
     )
     async def team_pace(self, interaction: discord.Interaction):
         """
-        Generates and sends a box plot illustrating the pace distribution
-        of each team across all completed sessions of the current event.
-        Each point on the plot represents a valid lap, colored by the tyre
-        compound used.
+        Generates and sends a box plot of team pace for the current event.
+
+        The plot shows the distribution of valid lap times for each team across all
+        completed sessions of the current race weekend. Individual laps are plotted
+        as points, colored by the tyre compound used. The plot is cached in Redis
+        to reduce regeneration time.
+
+        Args:
+            interaction: The Discord interaction object.
         """
         log.info(f"Command '/strategist team_pace' invoked by {interaction.user}")
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -625,12 +689,18 @@ class StrategistGroup(app_commands.Group):
         return
 
     @app_commands.command(
-        name="driver_standing", description="World Driver Champion standing"
+        name="driver_standing", description="View the current World Driver Championship standings."
     )
     async def driver_standing(self, interaction: discord.Interaction):
         """
-        Displays the World Driver Championship standings for the current year,
-        highlighting drivers still in contention based on remaining points.
+        Displays the current World Driver Championship standings.
+
+        It fetches the latest standings from the Ergast API and calculates which
+        drivers are still mathematically in contention for the championship based
+        on the points remaining in the season.
+
+        Args:
+            interaction: The Discord interaction object.
         """
         # Get current driver standings from the Ergast API
         driver_standings = (
@@ -704,12 +774,18 @@ class StrategistGroup(app_commands.Group):
             )
 
     @app_commands.command(
-        name="team_standing", description="World Constructor Champion standing"
+        name="team_standing", description="View the current World Constructor Championship standings."
     )
     async def team_standing(self, interaction: discord.Interaction):
         """
-        Displays the World Constructor Championship standings for the current year,
-        highlighting constructors still in contention based on remaining points.
+        Displays the current World Constructor Championship standings.
+
+        It fetches the latest standings from the Ergast API and calculates which
+        constructors are still mathematically in contention for the championship
+        based on the points remaining in the season.
+
+        Args:
+            interaction: The Discord interaction object.
         """
         # Get current constructor standings from the Ergast API
         constructor_standings = (

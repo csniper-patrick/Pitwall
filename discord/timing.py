@@ -1,49 +1,61 @@
-import json
+# timing.py
+"""
+Handles timing data events from the Redis pub/sub stream and posts them to Discord.
+
+This module listens for messages on the 'TimingDataF1' channel and sends notifications
+for various events, including fastest laps, personal bests, retirements, and
+qualifying knockouts.
+"""
+
 import asyncio
+import json
+from typing import Any, Dict
+
 import redis.asyncio as redis
-from dotenv import load_dotenv
-from utils import *
 from discordwebhook import Discord
-from typing import *
+from dotenv import load_dotenv
+
+from utils import *
 
 load_dotenv()
 
+# --- Configuration ---
 DISCORD_WEBHOOK, VER_TAG, msgStyle, REDIS_HOST, REDIS_PORT, REDIS_CHANNEL, RETRY = load_config()
+
 
 async def timingDataF1Handler(
     redis_client: redis.Redis, discord: Discord, raceNumber: str, delta: Dict[str, Any]
 ) -> None:
-    # get data from redis
+    """
+    Processes timing data updates for a specific driver and sends notifications.
+
+    Args:
+        redis_client: An active Redis client instance.
+        discord: A Discord webhook client.
+        raceNumber: The racing number of the driver.
+        delta: A dictionary containing the timing data update.
+    """
+    # --- Data Fetching ---
     sessionInfo = await redis_client.json().get("SessionInfo")
     timingDataF1 = (await redis_client.json().get("TimingDataF1"))["Lines"][raceNumber]
     driverInfo = (await redis_client.json().get("DriverList"))[raceNumber]
-    tyreStint = (await redis_client.json().get("TyreStintSeries"))["Stints"][raceNumber]
+    tyreStint = (await redis_client.json().get("TyreStintSeries"))["Stints"].get(raceNumber, [])
 
-    if len(tyreStint) > 0 and tyreStint[-1]["Compound"] in msgStyle["compoundSymbol"]:
-        currentCompound = f"{msgStyle["compoundSymbol"][tyreStint[-1]["Compound"]]}{tyreStint[-1]["Compound"]}"
-    elif len(tyreStint) > 0:
-        currentCompound = tyreStint[-1]["Compound"]
+    currentCompound = ""
+    if tyreStint and tyreStint[-1].get("Compound") in msgStyle["compoundSymbol"]:
+        currentCompound = f"{msgStyle['compoundSymbol'][tyreStint[-1]['Compound']]}{tyreStint[-1]['Compound']}"
+    elif tyreStint:
+        currentCompound = tyreStint[-1].get("Compound", "")
 
-    # Handle Last Lap Time update
+    # --- Event Handling ---
+    # Handle Last Lap Time updates (fastest laps, personal bests).
     if (
         "LastLapTime" in delta
-        and "Value" in delta["LastLapTime"]
-        and delta["LastLapTime"]["Value"] != ""
+        and delta["LastLapTime"].get("Value")
     ):
-        isOverallFastest = (
-            "OverallFastest" in delta["LastLapTime"]
-            and delta["LastLapTime"]["OverallFastest"]
-        ) or (
-            "OverallFastest" not in delta["LastLapTime"]
-            and timingDataF1["LastLapTime"]["OverallFastest"]
-        )
-        isPersonalFastest = (
-            "PersonalFastest" in delta["LastLapTime"]
-            and delta["LastLapTime"]["PersonalFastest"]
-        ) or (
-            "PersonalFastest" not in delta["LastLapTime"]
-            and timingDataF1["LastLapTime"]["PersonalFastest"]
-        )
+        isOverallFastest = delta["LastLapTime"].get("OverallFastest") or timingDataF1["LastLapTime"].get("OverallFastest")
+        isPersonalFastest = delta["LastLapTime"].get("PersonalFastest") or timingDataF1["LastLapTime"].get("PersonalFastest")
+
         if isOverallFastest:
             discord.post(
                 username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
@@ -54,38 +66,31 @@ async def timingDataF1Handler(
                             {
                                 "name": "Sectors",
                                 "value": "".join(
-                                    map(
-                                        lambda sector: (
-                                            "\U0001f7ea"  # purple square emoji
-                                            if sector["OverallFastest"]
-                                            else (
-                                                "\U0001f7e9"  # green square emoji
-                                                if sector["PersonalFastest"]
-                                                else "\U0001f7e8"  # yellow square emoji
-                                            )
-                                        ),
-                                        timingDataF1["Sectors"],
+                                    (
+                                        "\U0001f7ea"  # purple square
+                                        if sector.get("OverallFastest")
+                                        else (
+                                            "\U0001f7e9"  # green square
+                                            if sector.get("PersonalFastest")
+                                            else "\U0001f7e8"  # yellow square
+                                        )
                                     )
+                                    for sector in timingDataF1["Sectors"]
                                 ),
                                 "inline": True,
                             },
                             {
                                 "name": "Tyre",
-                                "value": f"{currentCompound} (age: {tyreStint[-1]["TotalLaps"]})",
+                                "value": f"{currentCompound} (age: {tyreStint[-1]['TotalLaps']})" if tyreStint else "N/A",
                                 "inline": True,
                             },
                         ],
                         "color": 10181046,  # Purple
                     },
                 ],
-                avatar_url=(
-                    driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
-                ),
+                avatar_url=driverInfo.get("HeadshotUrl"),
             )
-        elif isPersonalFastest and sessionInfo["Type"] in [
-            "Qualifying",
-            "Sprint Shootout",
-        ]:
+        elif isPersonalFastest and sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
             discord.post(
                 username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
                 embeds=[
@@ -95,40 +100,33 @@ async def timingDataF1Handler(
                             {
                                 "name": "Sectors",
                                 "value": "".join(
-                                    map(
-                                        lambda sector: (
-                                            "\U0001f7ea"  # purple square emoji
-                                            if sector["OverallFastest"]
-                                            else (
-                                                "\U0001f7e9"  # green square emoji
-                                                if sector["PersonalFastest"]
-                                                else "\U0001f7e8"  # yellow square emoji
-                                            )
-                                        ),
-                                        timingDataF1["Sectors"],
+                                    (
+                                        "\U0001f7ea"  # purple square
+                                        if sector.get("OverallFastest")
+                                        else (
+                                            "\U0001f7e9"  # green square
+                                            if sector.get("PersonalFastest")
+                                            else "\U0001f7e8"  # yellow square
+                                        )
                                     )
+                                    for sector in timingDataF1["Sectors"]
                                 ),
                                 "inline": True,
                             },
                             {
                                 "name": "Tyre",
-                                "value": f"{currentCompound} (age: {tyreStint[-1]["TotalLaps"]})",
+                                "value": f"{currentCompound} (age: {tyreStint[-1]['TotalLaps']})" if tyreStint else "N/A",
                                 "inline": True,
                             },
                         ],
                         "color": 5763719,  # Green
                     },
                 ],
-                avatar_url=(
-                    driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
-                ),
+                avatar_url=driverInfo.get("HeadshotUrl"),
             )
-    # Handle knocked out of qualifying
-    if (
-        "KnockedOut" in delta
-        and delta["KnockedOut"]
-        and sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]
-    ):
+
+    # Handle knocked out of qualifying.
+    if delta.get("KnockedOut") and sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
         discord.post(
             username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
             embeds=[
@@ -137,30 +135,25 @@ async def timingDataF1Handler(
                     "color": int(driverInfo["TeamColour"], 16),
                 }
             ],
-            avatar_url=(
-                driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
-            ),
+            avatar_url=driverInfo.get("HeadshotUrl"),
         )
-    # Handle retirement
-    if "Retired" in delta and delta["Retired"]:
+
+    # Handle retirement.
+    if delta.get("Retired"):
+        lap_number = f" - Lap {timingDataF1.get('NumberOfLaps', 0) + 1}" if 'NumberOfLaps' in timingDataF1 else ''
         discord.post(
             username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
             embeds=[
                 {
-                    "title": f"Retired{ (' - Lap ' + str(timingDataF1['NumberOfLaps'] + 1) )if 'NumberOfLaps' in timingDataF1 else '' }",
+                    "title": f"Retired{lap_number}",
                     "color": int(driverInfo["TeamColour"], 16),
                 }
             ],
-            avatar_url=(
-                driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
-            ),
+            avatar_url=driverInfo.get("HeadshotUrl"),
         )
-    # Race Leader
-    if (
-        "Position" in delta
-        and delta["Position"] == "1"
-        and sessionInfo["Type"] in ["Race", "Sprint"]
-    ):
+
+    # Handle race leader changes.
+    if delta.get("Position") == "1" and sessionInfo["Type"] in ["Race", "Sprint"]:
         discord.post(
             username=f"{driverInfo['BroadcastName']} - {raceNumber}{VER_TAG}",
             embeds=[
@@ -176,38 +169,37 @@ async def timingDataF1Handler(
                     "color": int(driverInfo["TeamColour"], 16),
                 }
             ],
-            avatar_url=(
-                driverInfo["HeadshotUrl"] if "HeadshotUrl" in driverInfo else None
-            ),
+            avatar_url=driverInfo.get("HeadshotUrl"),
         )
 
 
 async def connectRedisChannel() -> None:
+    """
+    Connects to the Redis server and subscribes to the TimingDataF1 channel.
+
+    This function continuously listens for messages and calls the handler function.
+    """
     redis_client = redis.Redis(
         host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
     )
-    # redis_client = redis.from_url(f"redis://{REDIS_HOST}")
     async with redis_client.pubsub() as pubsub:
         await pubsub.subscribe("TimingDataF1")
         async for payload in pubsub.listen():
             if payload["type"] == "message":
-                match payload["channel"].decode("utf-8"):
-                    case "TimingDataF1":
-                        data = json.loads(payload["data"])
-                        if "Lines" not in data:
-                            continue
-                        if type(data["Lines"]) == dict:
-                            for raceNumber, delta in data["Lines"].items():
-                                asyncio.create_task(
-                                    timingDataF1Handler(
-                                        redis_client,
-                                        Discord(url=DISCORD_WEBHOOK),
-                                        raceNumber,
-                                        delta,
-                                    )
-                                )
-                    case _:
+                channel = payload["channel"].decode("utf-8")
+                if channel == "TimingDataF1":
+                    data = json.loads(payload["data"])
+                    if "Lines" not in data or not isinstance(data["Lines"], dict):
                         continue
+                    for raceNumber, delta in data["Lines"].items():
+                        asyncio.create_task(
+                            timingDataF1Handler(
+                                redis_client,
+                                Discord(url=DISCORD_WEBHOOK),
+                                raceNumber,
+                                delta,
+                            )
+                        )
 
 
 if __name__ == "__main__":
