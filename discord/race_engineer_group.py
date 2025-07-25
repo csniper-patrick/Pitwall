@@ -247,7 +247,7 @@ class RaceEngineerGroup(app_commands.Group):
             for RacingNumber, timing in driver_adv:
                 response.add_field(
                     name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1]['TimeDifftoPositionAhead']})`",
+                    value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1]['TimeDiffToPositionAhead']})`",
                     inline=False,
                 )
 
@@ -257,7 +257,7 @@ class RaceEngineerGroup(app_commands.Group):
                 for RacingNumber, timing in driver_timing[limit:]:
                     at_risk.add_field(
                         name=driverList[RacingNumber]["BroadcastName"],
-                        value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1]['TimeDifftoPositionAhead']})`",
+                        value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1]['TimeDiffToPositionAhead']})`",
                         inline=False,
                     )
                 await interaction.response.send_message(
@@ -276,7 +276,7 @@ class RaceEngineerGroup(app_commands.Group):
             for RacingNumber, timing in driver_timing:
                 response.add_field(
                     name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing['TimeDifftoPositionAhead']})`",
+                    value=f"`{timing['BestLapTime']['Value']} ({timing['TimeDiffToPositionAhead']})`",
                     inline=False,
                 )
             await interaction.response.send_message(embeds=[response], ephemeral=True)
