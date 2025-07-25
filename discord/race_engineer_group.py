@@ -57,7 +57,7 @@ async def get_active_driver():
         # Filter out drivers who have retired
         active_line = dict(
             filter(
-                lambda item: not item[1]["Retired"] and item[1]["ShowPosition"],
+                lambda item: not item[1]["Retired"],
                 timingDataF1["Lines"].items(),
             )
         )
@@ -66,7 +66,7 @@ async def get_active_driver():
         # Filter out drivers who have been knocked out
         active_line = dict(
             filter(
-                lambda item: not item[1]["KnockedOut"] and item[1]["ShowPosition"],
+                lambda item: not item[1]["KnockedOut"],
                 timingDataF1["Lines"].items(),
             )
         )
@@ -247,7 +247,7 @@ class RaceEngineerGroup(app_commands.Group):
             for RacingNumber, timing in driver_adv:
                 response.add_field(
                     name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1]['TimeDiffToPositionAhead']})`",
+                    value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1].get('TimeDifftoPositionAhead', '')})`",
                     inline=False,
                 )
 
@@ -257,7 +257,7 @@ class RaceEngineerGroup(app_commands.Group):
                 for RacingNumber, timing in driver_timing[limit:]:
                     at_risk.add_field(
                         name=driverList[RacingNumber]["BroadcastName"],
-                        value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1]['TimeDiffToPositionAhead']})`",
+                        value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1].get('TimeDifftoPositionAhead', '')})`",
                         inline=False,
                     )
                 await interaction.response.send_message(
@@ -276,7 +276,7 @@ class RaceEngineerGroup(app_commands.Group):
             for RacingNumber, timing in driver_timing:
                 response.add_field(
                     name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing['TimeDiffToPositionAhead']})`",
+                    value=f"`{timing['BestLapTime']['Value']} ({timing.get('TimeDiffToPositionAhead', '')})`",
                     inline=False,
                 )
             await interaction.response.send_message(embeds=[response], ephemeral=True)
@@ -349,7 +349,7 @@ class RaceEngineerGroup(app_commands.Group):
             for RacingNumber, timing in driver_adv:
                 response.add_field(
                     name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1]['TimeDiffToFastest']})`",
+                    value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1].get('TimeDiffToFastest', '')})`",
                     inline=False,
                 )
 
@@ -359,7 +359,7 @@ class RaceEngineerGroup(app_commands.Group):
                 for RacingNumber, timing in driver_timing[limit:]:
                     at_risk.add_field(
                         name=driverList[RacingNumber]["BroadcastName"],
-                        value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1]['TimeDiffToFastest']})`",
+                        value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1].get('TimeDiffToFastest', '')})`",
                         inline=False,
                     )
                 await interaction.response.send_message(
@@ -378,7 +378,7 @@ class RaceEngineerGroup(app_commands.Group):
             for RacingNumber, timing in driver_timing:
                 response.add_field(
                     name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing['TimeDiffToFastest']})`",
+                    value=f"`{timing['BestLapTime']['Value']} ({timing.get('TimeDiffToFastest', '')})`",
                     inline=False,
                 )
             await interaction.response.send_message(embeds=[response], ephemeral=True)
