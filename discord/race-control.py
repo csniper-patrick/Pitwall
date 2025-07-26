@@ -45,8 +45,10 @@ async def raceControlMessageHandler(
 
     # --- Message Processing and Sending ---
     for content in messages["Messages"]:
+        # Condition to skip
         # Skip blue flags as they are too frequent and not critical for general viewing.
-        if content.get("Flag") == "BLUE":
+        is_blue_flag =( content.get("Flag") == "BLUE" )
+        if is_blue_flag:
             continue
 
         # Add a flag symbol to the message if applicable.

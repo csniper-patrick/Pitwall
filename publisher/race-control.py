@@ -152,11 +152,10 @@ async def connectLiveTiming():
                                 reference = updateDictDelta(reference or {}, delta)
 
                                 # Save the updated data back to Redis.
-                                asyncio.create_task(
-                                    redis_client.json().set(
-                                        channel, Path.root_path(), reference
-                                    )
+                                await redis_client.json().set(
+                                    channel, Path.root_path(), reference
                                 )
+
                                 # Publish the delta to the Redis channel for consumers.
                                 asyncio.create_task(
                                     redis_client.publish(channel, json.dumps(delta))

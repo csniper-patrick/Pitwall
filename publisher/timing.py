@@ -169,8 +169,8 @@ async def connectLiveTiming():
 
                                 reference = await redis_client.json().get(channel)
                                 reference = updateDictDelta(reference or {}, delta)
-                                asyncio.create_task(
-                                    redis_client.json().set(channel, Path.root_path(), reference)
+                                await redis_client.json().set(
+                                    channel, Path.root_path(), reference
                                 )
 
                                 # --- Debounce LastLapTime Updates ---

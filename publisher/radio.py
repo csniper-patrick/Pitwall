@@ -189,7 +189,9 @@ async def connectLiveTiming():
                                 reference = await redis_client.json().get(channel)
                                 sessionInfo = await redis_client.json().get("SessionInfo")
                                 reference = updateDictDelta(reference or {}, delta)
-                                await redis_client.json().set(channel, Path.root_path(), reference)
+                                await redis_client.json().set(
+                                    channel, Path.root_path(), reference
+                                )
 
                                 # Process each new radio capture.
                                 captures = delta.get("Captures", [])

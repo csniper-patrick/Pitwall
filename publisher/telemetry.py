@@ -152,9 +152,10 @@ async def connectLiveTiming():
                                 value.pop("_kf", None)
 
                                 # Store the updated data in Redis.
-                                asyncio.create_task(
-                                    redis_client.json().set(channel, Path.root_path(), value)
+                                await redis_client.json().set(
+                                    channel, Path.root_path(), value
                                 )
+
                                 # Publish the decompressed data to the Redis channel.
                                 asyncio.create_task(
                                     redis_client.publish(channel, json.dumps(value))
