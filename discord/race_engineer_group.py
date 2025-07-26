@@ -209,7 +209,7 @@ class RaceEngineerGroup(app_commands.Group):
         }
         # Sort drivers by their position on the timing screen ('Line').
         driver_timing = list(
-            sorted(driver_timing.items(), key=lambda item: int(item[1]["Line"]))
+            sorted(driver_timing.items(), key=lambda item: int( driverList[item[0]].get("Line", 99) ))
         )
 
         # The data displayed depends on the type of session.
@@ -311,7 +311,7 @@ class RaceEngineerGroup(app_commands.Group):
         }
         # Sort drivers by their position on the timing screen ('Line').
         driver_timing = list(
-            sorted(driver_timing.items(), key=lambda item: int(item[1]["Line"]))
+            sorted(driver_timing.items(), key=lambda item: int( driverList[item[0]].get("Line", 99) ))
         )
 
         # The data displayed depends on the type of session.
