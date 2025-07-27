@@ -164,8 +164,8 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
     driver_palette_wet = { key: to_rgba(val, alpha=0.5) for key, val in driver_palette.items() }
     session_type_marker = {
         "Race": "o",
-        "Qualifying": "s",
-        "Practice": "X",
+        "Qualifying": 7,
+        "Practice": "s",
     }
 
     # Initialize the matplotlib figure and axes.
