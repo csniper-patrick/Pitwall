@@ -418,6 +418,7 @@ class RaceEngineerGroup(app_commands.Group):
         # --- Plotting Setup ---
         # Initialize the matplotlib figure and axes for the plot.
         fig, ax = plt.subplots(figsize=(12.0, 6.0))
+        fig.suptitle(f"{sessionInfo['Meeting']['Name']} {sessionInfo['Name']} - Position Change")
 
         # --- Driver Styling ---
         # Create a unique visual style (color and line style) for each driver.

@@ -184,8 +184,11 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
 
     # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
     driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
+    threshold = min(
+        [driver_laps["LapTime(s)"].min() * 1.2, driver_laps["LapTime(s)"].min() + 20.0]
+    )
     driver_laps = driver_laps[
-        (driver_laps["LapTime(s)"] <= driver_laps["LapTime(s)"].min() * 1.25)
+        (driver_laps["LapTime(s)"] <= threshold)
         | (driver_laps["Session_Type"] == "Race")
     ]
 
