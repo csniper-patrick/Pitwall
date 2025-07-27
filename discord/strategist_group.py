@@ -552,7 +552,7 @@ class StrategistGroup(app_commands.Group):
         # --- Caching ---
         # The plot is cached in Redis to avoid regenerating it on every request.
         # The cache key includes the year, event, and session to ensure it's unique.
-        # The cache expires after 12 hours (43200 seconds).
+        # The cache expires after 1 day (86400 seconds).
         bio = io.BytesIO()
         cached_bytes = await redis_client.get(
             f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
@@ -577,7 +577,7 @@ class StrategistGroup(app_commands.Group):
             await redis_client.set(
                 f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
                 bio.getvalue(),
-                ex=43200,
+                ex=86400,
             )
 
         # --- Send Response ---
@@ -652,7 +652,7 @@ class StrategistGroup(app_commands.Group):
         # --- Caching ---
         # The plot is cached in Redis to avoid regenerating it on every request.
         # The cache key includes the year, event, and session to ensure it's unique.
-        # The cache expires after 12 hours (43200 seconds).
+        # The cache expires after 1 day (86400 seconds).
         bio = io.BytesIO()
         cached_bytes = await redis_client.get(
             f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
@@ -678,7 +678,7 @@ class StrategistGroup(app_commands.Group):
             await redis_client.set(
                 f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
                 bio.getvalue(),
-                ex=43200,
+                ex=86400,
             )
 
         # --- Send Response ---
