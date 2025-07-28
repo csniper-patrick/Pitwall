@@ -15,6 +15,7 @@ import io
 import logging
 import os
 from typing import Optional
+import asyncio
 
 # Third-party imports
 import discord
@@ -313,6 +314,8 @@ class StrategistGroup(app_commands.Group):
         # Initialize the command group with a name and description
         super().__init__(name="strategist", description="Commands for the Strategist.")
         log.info("Strategist command group initialized.")
+        self.team_pace_lock=asyncio.Lock()
+        self.driver_pace_lock=asyncio.Lock()
 
     @app_commands.command(
         name="schedule",
@@ -568,41 +571,46 @@ class StrategistGroup(app_commands.Group):
         # The plot is cached in Redis to avoid regenerating it on every request.
         # The cache key includes the year, event, and session to ensure it's unique.
         # The cache expires after 1 day (86400 seconds).
-        bio = io.BytesIO()
-        cached_bytes = await redis_client.get(
-            f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
-        )
-        if cached_bytes:
-            bio = io.BytesIO(cached_bytes)
-        else:
-
-            fig = pace_plot('driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList)
-            if fig is None:
-                await interaction.followup.send(
-                    content="No completed sessions available to generate a pace plot."
-                )
-                return
-
-            # --- Image Generation & Caching ---
-            # Save the generated plot to an in-memory binary stream (BytesIO).
-            fig.savefig(bio, dpi=600, format="png")
-            # Reset the stream's position to the beginning before reading.
-            bio.seek(0)
-            # Cache the newly generated plot in Redis.
-            await redis_client.set(
-                f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
-                bio.getvalue(),
-                ex=86400,
+        await self.driver_pace_lock.acquire()
+        try:
+            bio = io.BytesIO()
+            cached_bytes = await redis_client.get(
+                f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
             )
+            if cached_bytes:
+                bio = io.BytesIO(cached_bytes)
+            else:
 
-        # --- Send Response ---
-        # Create a discord.File object from the stream.
-        attachment = discord.File(
-            bio,
-            filename=f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
-        )
-        # Send the file as a response to the interaction.
-        await interaction.followup.send(file=attachment)
+                fig = pace_plot('driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList)
+                if fig is None:
+                    await interaction.followup.send(
+                        content="No completed sessions available to generate a pace plot."
+                    )
+                    self.driver_pace_lock.release()
+                    return
+
+                # --- Image Generation & Caching ---
+                # Save the generated plot to an in-memory binary stream (BytesIO).
+                fig.savefig(bio, dpi=600, format="png")
+                # Reset the stream's position to the beginning before reading.
+                bio.seek(0)
+                # Cache the newly generated plot in Redis.
+                await redis_client.set(
+                    f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
+                    bio.getvalue(),
+                    ex=86400,
+                )
+
+            # --- Send Response ---
+            # Create a discord.File object from the stream.
+            attachment = discord.File(
+                bio,
+                filename=f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
+            )
+            # Send the file as a response to the interaction.
+            await interaction.followup.send(file=attachment)
+        finally:
+            self.driver_pace_lock.release()
         return
 
     @app_commands.command(
@@ -668,42 +676,47 @@ class StrategistGroup(app_commands.Group):
         # The plot is cached in Redis to avoid regenerating it on every request.
         # The cache key includes the year, event, and session to ensure it's unique.
         # The cache expires after 1 day (86400 seconds).
-        bio = io.BytesIO()
-        cached_bytes = await redis_client.get(
-            f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
-        )
-        if cached_bytes:
-            bio = io.BytesIO(cached_bytes)
-        else:
-            
-            fig = pace_plot('team', session_idx['year'], session_idx['event'], session_idx['session'], driverList)
-            
-            if fig is None:
-                await interaction.followup.send(
-                    content="No completed sessions available to generate a pace plot."
-                )
-                return
-            
-            # --- Image Generation & Caching ---
-            # Save the generated plot to an in-memory binary stream (BytesIO).
-            fig.savefig(bio, dpi=600, format="png")
-            # Reset the stream's position to the beginning before reading.
-            bio.seek(0)
-            # Cache the newly generated plot in Redis.
-            await redis_client.set(
-                f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
-                bio.getvalue(),
-                ex=86400,
+        await self.team_pace_lock.acquire()
+        try:
+            bio = io.BytesIO()
+            cached_bytes = await redis_client.get(
+                f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
             )
+            if cached_bytes:
+                bio = io.BytesIO(cached_bytes)
+            else:
+                
+                fig = pace_plot('team', session_idx['year'], session_idx['event'], session_idx['session'], driverList)
+                
+                if fig is None:
+                    await interaction.followup.send(
+                        content="No completed sessions available to generate a pace plot."
+                    )
+                    self.team_pace_lock.release()
+                    return
+                
+                # --- Image Generation & Caching ---
+                # Save the generated plot to an in-memory binary stream (BytesIO).
+                fig.savefig(bio, dpi=600, format="png")
+                # Reset the stream's position to the beginning before reading.
+                bio.seek(0)
+                # Cache the newly generated plot in Redis.
+                await redis_client.set(
+                    f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
+                    bio.getvalue(),
+                    ex=86400,
+                )
 
-        # --- Send Response ---
-        # Create a discord.File object from the stream.
-        attachment = discord.File(
-            bio,
-            filename=f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
-        )
-        # Send the file as a response to the interaction.
-        await interaction.followup.send(file=attachment)
+            # --- Send Response ---
+            # Create a discord.File object from the stream.
+            attachment = discord.File(
+                bio,
+                filename=f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png",
+            )
+            # Send the file as a response to the interaction.
+            await interaction.followup.send(file=attachment)
+        finally:
+            self.team_pace_lock.release()
         return
 
     @app_commands.command(
