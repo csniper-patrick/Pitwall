@@ -200,6 +200,9 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
 
     # Convert the 'LapTime' (a timedelta object) to total seconds for plotting on a numeric axis.
     driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
+    # Calculate a threshold to filter out unrealistically slow laps (e.g., cool-down laps),
+    # but preserve all race laps to show the full pace distribution during the race.
+    # The threshold is the smaller of 120% of the fastest lap or the fastest lap + 20 seconds.
     threshold = min(
         [driver_laps["LapTime(s)"].min() * 1.2, driver_laps["LapTime(s)"].min() + 20.0]
     )
@@ -311,9 +314,11 @@ class StrategistGroup(app_commands.Group):
     """A Discord slash command group for all strategist-related commands."""
 
     def __init__(self):
-        # Initialize the command group with a name and description
+        # Initialize the command group with a name and description.
         super().__init__(name="strategist", description="Commands for the Strategist.")
         log.info("Strategist command group initialized.")
+        # Locks to prevent multiple concurrent plot generation requests for the same plot type,
+        # which can be resource-intensive.
         self.team_pace_lock=asyncio.Lock()
         self.driver_pace_lock=asyncio.Lock()
 
@@ -567,31 +572,36 @@ class StrategistGroup(app_commands.Group):
             - int("Complete" != sessionInfo["ArchiveStatus"]["Status"]),
         }
         plot_name = f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
-        # --- Caching ---
+        # --- Caching & Plot Generation ---
         # The plot is cached in Redis to avoid regenerating it on every request.
-        # The cache key includes the year, event, and session to ensure it's unique.
-        # The cache expires after 1 day (86400 seconds).
+        # A lock is used to prevent race conditions from multiple simultaneous requests.
         try:
             bio = io.BytesIO()
+            # First, check if the plot is already in the cache.
             if cached_bytes := await redis_client.get(plot_name):
                 bio = io.BytesIO(cached_bytes)
+            # If not cached, acquire a lock and re-check the cache (double-checked locking).
             elif await self.driver_pace_lock.acquire() and (cached_bytes := await redis_client.get(plot_name)):
                 bio = io.BytesIO(cached_bytes)
+            # If still not cached, generate the plot.
             elif fig := pace_plot('driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
+                # Save the newly generated plot to the cache with a 1-day expiry.
                 await redis_client.set(
                     plot_name,
                     bio.getvalue(),
-                    ex=86400,
+                    ex=86400, # 1 day
                 )
             else:
+                # Handle cases where no data is available for plotting.
                 await interaction.followup.send(
                         content="No completed sessions available to generate a pace plot."
                     )
                 self.driver_pace_lock.release()
                 return
         finally:
+            # Ensure the lock is always released.
             if self.driver_pace_lock.locked():
                 self.driver_pace_lock.release()
             # --- Send Response ---
@@ -663,31 +673,36 @@ class StrategistGroup(app_commands.Group):
             - int("Complete" != sessionInfo["ArchiveStatus"]["Status"]),
         }
         plot_name = f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
-        # --- Caching ---
+        # --- Caching & Plot Generation ---
         # The plot is cached in Redis to avoid regenerating it on every request.
-        # The cache key includes the year, event, and session to ensure it's unique.
-        # The cache expires after 1 day (86400 seconds).
+        # A lock is used to prevent race conditions from multiple simultaneous requests.
         try:
             bio = io.BytesIO()
+            # First, check if the plot is already in the cache.
             if cached_bytes := await redis_client.get(plot_name):
                 bio = io.BytesIO(cached_bytes)
+            # If not cached, acquire a lock and re-check the cache (double-checked locking).
             elif await self.team_pace_lock.acquire() and (cached_bytes := await redis_client.get(plot_name)):
                 bio = io.BytesIO(cached_bytes)
+            # If still not cached, generate the plot.
             elif fig := pace_plot('team', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
+                # Save the newly generated plot to the cache with a 1-day expiry.
                 await redis_client.set(
                     plot_name,
                     bio.getvalue(),
-                    ex=86400,
+                    ex=86400, # 1 day
                 )
             else:
+                # Handle cases where no data is available for plotting.
                 await interaction.followup.send(
                         content="No completed sessions available to generate a pace plot."
                     )
                 self.team_pace_lock.release()
                 return
         finally:
+            # Ensure the lock is always released.
             if self.team_pace_lock.locked():
                 self.team_pace_lock.release()
             # --- Send Response ---
