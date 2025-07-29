@@ -584,7 +584,7 @@ class StrategistGroup(app_commands.Group):
             elif await self.driver_pace_lock.acquire() and (cached_bytes := await redis_client.get(plot_name)):
                 bio = io.BytesIO(cached_bytes)
             # If still not cached, generate the plot.
-            elif fig := pace_plot('driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
+            elif fig := await asyncio.to_thread(pace_plot, 'driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
                 # Save the newly generated plot to the cache with a 1-day expiry.
@@ -685,7 +685,7 @@ class StrategistGroup(app_commands.Group):
             elif await self.team_pace_lock.acquire() and (cached_bytes := await redis_client.get(plot_name)):
                 bio = io.BytesIO(cached_bytes)
             # If still not cached, generate the plot.
-            elif fig := pace_plot('team', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
+            elif fig := await asyncio.to_thread(pace_plot, 'team', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
                 # Save the newly generated plot to the cache with a 1-day expiry.
