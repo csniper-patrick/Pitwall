@@ -576,7 +576,7 @@ class StrategistGroup(app_commands.Group):
         # The plot is cached in Redis to avoid regenerating it on every request.
         # A lock is used to prevent race conditions from multiple simultaneous requests.
         try:
-            bio = io.BytesIO()
+            bio = None
             # First, check if the plot is already in the cache.
             if cached_bytes := await redis_client.get(plot_name):
                 bio = io.BytesIO(cached_bytes)
@@ -585,6 +585,7 @@ class StrategistGroup(app_commands.Group):
                 bio = io.BytesIO(cached_bytes)
             # If still not cached, generate the plot.
             elif fig := await asyncio.to_thread(pace_plot, 'driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
+                bio = io.BytesIO()
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
                 # Save the newly generated plot to the cache with a 1-day expiry.
@@ -593,26 +594,26 @@ class StrategistGroup(app_commands.Group):
                     bio.getvalue(),
                     ex=86400, # 1 day
                 )
-            else:
-                # Handle cases where no data is available for plotting.
-                await interaction.followup.send(
-                        content="No completed sessions available to generate a pace plot."
-                    )
-                self.driver_pace_lock.release()
-                return
         finally:
             # Ensure the lock is always released.
             if self.driver_pace_lock.locked():
                 self.driver_pace_lock.release()
             # --- Send Response ---
             # Create a discord.File object from the stream.
-            attachment = discord.File(
-                bio,
-                filename=plot_name,
-            )
-            # Send the file as a response to the interaction.
-            await interaction.followup.send(file=attachment)
-            return
+            if bio != None:
+                attachment = discord.File(
+                    bio,
+                    filename=plot_name,
+                )
+                # Send the file as a response to the interaction.
+                await interaction.followup.send(file=attachment)
+                return
+            else:
+                # Handle cases where no data is available for plotting.
+                await interaction.followup.send(
+                        content="No completed sessions available to generate a pace plot."
+                    )
+                return
 
     @app_commands.command(
         name="team_pace",
@@ -677,7 +678,7 @@ class StrategistGroup(app_commands.Group):
         # The plot is cached in Redis to avoid regenerating it on every request.
         # A lock is used to prevent race conditions from multiple simultaneous requests.
         try:
-            bio = io.BytesIO()
+            bio = None
             # First, check if the plot is already in the cache.
             if cached_bytes := await redis_client.get(plot_name):
                 bio = io.BytesIO(cached_bytes)
@@ -686,6 +687,7 @@ class StrategistGroup(app_commands.Group):
                 bio = io.BytesIO(cached_bytes)
             # If still not cached, generate the plot.
             elif fig := await asyncio.to_thread(pace_plot, 'team', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
+                bio = io.BytesIO()
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
                 # Save the newly generated plot to the cache with a 1-day expiry.
@@ -694,26 +696,27 @@ class StrategistGroup(app_commands.Group):
                     bio.getvalue(),
                     ex=86400, # 1 day
                 )
-            else:
-                # Handle cases where no data is available for plotting.
-                await interaction.followup.send(
-                        content="No completed sessions available to generate a pace plot."
-                    )
-                self.team_pace_lock.release()
-                return
         finally:
             # Ensure the lock is always released.
             if self.team_pace_lock.locked():
                 self.team_pace_lock.release()
             # --- Send Response ---
             # Create a discord.File object from the stream.
-            attachment = discord.File(
-                bio,
-                filename=plot_name,
-            )
-            # Send the file as a response to the interaction.
-            await interaction.followup.send(file=attachment)
-            return
+            if bio != None:
+                attachment = discord.File(
+                    bio,
+                    filename=plot_name,
+                )
+                # Send the file as a response to the interaction.
+                await interaction.followup.send(file=attachment)
+                return
+            else:
+                # Handle cases where no data is available for plotting.
+                await interaction.followup.send(
+                        content="No completed sessions available to generate a pace plot."
+                    )
+                return
+                
         
     @app_commands.command(
         name="driver_standing", description="View the current World Driver Championship standings."
