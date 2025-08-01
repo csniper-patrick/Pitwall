@@ -231,6 +231,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
             showfliers=False,
             legend=False,
             saturation=1,
+            ax=ax,
         )
 
         # Wet Tires
@@ -244,7 +245,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
             fill=False,
             showfliers=False,
             legend=False,
-            # saturation=0.1,
+            ax=ax,
         )
 
         # 2. Overlay a swarm plot to show each individual valid lap.
@@ -267,6 +268,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
                 marker=marker,
                 dodge=True,
                 legend=False,
+                ax=ax,
             )
     elif plot_type == 'team':
         # --- Plotting ---
@@ -285,6 +287,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
             showfliers=False,
             legend=False,
             gap=0.1,
+            ax=ax,
         )
 
         # 2. Overlay a swarm plot to show each individual valid lap.
@@ -307,6 +310,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
                 marker=marker,
                 dodge=True,
                 legend=False,
+                ax=ax,
             )
     return fig
 
