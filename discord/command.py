@@ -68,6 +68,8 @@ async def help_command(interaction: discord.Interaction):
     """Displays a helpful message listing all commands."""
     log.info(f"Command '/pitwall-help' invoked by {interaction.user}")
 
+    app_id = { f"{app_command.name}": app_command.id for app_command in await tree.fetch_commands() }
+
     embed = discord.Embed(
         title="Pitwall Commands",
         description="Here are all the commands you can use with the Pitwall bot:",
@@ -77,7 +79,7 @@ async def help_command(interaction: discord.Interaction):
     # Add the help command itself to the list
     embed.add_field(
         name="General Commands",
-        value="`/pitwall-help`: Shows this help message.\n\n"
+        value=f"</pitwall-help:{app_id['pitwall-help']}>: Shows this help message.\n\n"
         "Output of all the following commands are only visible to you",
         inline=False,
     )
@@ -86,7 +88,7 @@ async def help_command(interaction: discord.Interaction):
         if isinstance(group, app_commands.Group):
             # Format command names and descriptions for the embed
             cmds = [
-                f"`/{group.name} {cmd.name}`: {cmd.description}\n"
+                f"</{group.name} {cmd.name}:{app_id[group.name]}>: {cmd.description}\n"
                 for cmd in group.commands
             ]
             if cmds:
@@ -105,7 +107,7 @@ async def help_command(interaction: discord.Interaction):
         name="❤️ Support & 💪🏻Contribute",
         value="Pitwall is an open-source project! If you find it useful, please consider starring the project or contributing with code\n"
         "- [GitLab - Pitwall](https://gitlab.com/CSniper/pitwall)\n"
-        "- [GitHub - Pitwall(mirror)](https://github.com/csniper-patrick/Pitwall)\n",
+        "- [GitHub - Pitwall (mirror)](https://github.com/csniper-patrick/Pitwall)\n",
         inline=False,
     )
 
