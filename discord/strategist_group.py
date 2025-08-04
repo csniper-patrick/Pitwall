@@ -756,7 +756,7 @@ class StrategistGroup(app_commands.Group):
 
         # Calculate total possible points from remaining events based on their format
         sprint_points = (
-            len(events.loc[events["EventFormat"] == "sprint_shootout"])
+            len(events.loc[events["EventFormat"] == "sprint_qualifying"])
             * POINTS_FOR_SPRINT
         )
         conventional_points = (
@@ -841,7 +841,7 @@ class StrategistGroup(app_commands.Group):
 
         # Calculate total possible points from remaining events based on their format
         sprint_points = (
-            len(events.loc[events["EventFormat"] == "sprint_shootout"])
+            len(events.loc[events["EventFormat"] == "sprint_qualifying"])
             * POINTS_FOR_SPRINT
         )
         conventional_points = (
