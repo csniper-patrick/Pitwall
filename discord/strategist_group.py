@@ -780,7 +780,9 @@ class StrategistGroup(app_commands.Group):
 
         # Create a Discord embed for drivers still in contention
         embed_in_contention = discord.Embed(
-            title="World Driver Champion", color=discord.Color.gold()
+            title="World Driver Champion",
+            color=discord.Color.gold(),
+            description=f"{total_points_remaining} points remaining in the season"
         )
         for _, driver in driver_in_contention.iterrows():
             embed_in_contention.add_field(
@@ -865,7 +867,9 @@ class StrategistGroup(app_commands.Group):
 
         # Create a Discord embed for constructors still in contention
         embed_in_contention = discord.Embed(
-            title="World Constructor Champion", color=discord.Color.gold()
+            title="World Constructor Champion",
+            color=discord.Color.gold(),
+            description=f"{total_points_remaining} points remaining in the season"
         )
         for _, constructor in constructor_in_contention.iterrows():
             embed_in_contention.add_field(
