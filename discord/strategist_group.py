@@ -317,14 +317,15 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
 class StrategistGroup(app_commands.Group):
     """A Discord slash command group for all strategist-related commands."""
 
-    def __init__(self):
+    def __init__(self, task_semaphore: asyncio.Semaphore = asyncio.Semaphore(1)):
         # Initialize the command group with a name and description.
         super().__init__(name="strategist", description="Commands for the Strategist.")
         log.info("Strategist command group initialized.")
         # Locks to prevent multiple concurrent plot generation requests for the same plot type,
         # which can be resource-intensive.
-        self.team_pace_lock=asyncio.Lock()
-        self.driver_pace_lock=asyncio.Lock()
+        self.team_pace_lock = asyncio.Lock()
+        self.driver_pace_lock = asyncio.Lock()
+        self.task_semaphore = task_semaphore
 
     @app_commands.command(
         name="schedule",
@@ -588,7 +589,7 @@ class StrategistGroup(app_commands.Group):
             elif await self.driver_pace_lock.acquire() and (cached_bytes := await redis_client.get(plot_name)):
                 bio = io.BytesIO(cached_bytes)
             # If still not cached, generate the plot.
-            elif fig := await asyncio.to_thread(pace_plot, 'driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
+            elif await self.task_semaphore.acquire() and (fig := await asyncio.to_thread(pace_plot, 'driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList)):
                 bio = io.BytesIO()
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
@@ -600,6 +601,8 @@ class StrategistGroup(app_commands.Group):
                 )
         finally:
             # Ensure the lock is always released.
+            if self.task_semaphore.locked():
+                self.task_semaphore.release()
             if self.driver_pace_lock.locked():
                 self.driver_pace_lock.release()
             # --- Send Response ---
@@ -690,7 +693,7 @@ class StrategistGroup(app_commands.Group):
             elif await self.team_pace_lock.acquire() and (cached_bytes := await redis_client.get(plot_name)):
                 bio = io.BytesIO(cached_bytes)
             # If still not cached, generate the plot.
-            elif fig := await asyncio.to_thread(pace_plot, 'team', session_idx['year'], session_idx['event'], session_idx['session'], driverList):
+            elif await self.task_semaphore.acquire() and (fig := await asyncio.to_thread(pace_plot, 'team', session_idx['year'], session_idx['event'], session_idx['session'], driverList)):
                 bio = io.BytesIO()
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
@@ -702,6 +705,8 @@ class StrategistGroup(app_commands.Group):
                 )
         finally:
             # Ensure the lock is always released.
+            if self.task_semaphore.locked():
+                self.task_semaphore.release()
             if self.team_pace_lock.locked():
                 self.team_pace_lock.release()
             # --- Send Response ---
@@ -720,8 +725,7 @@ class StrategistGroup(app_commands.Group):
                         content="No completed sessions available to generate a pace plot."
                     )
                 return
-                
-        
+
     @app_commands.command(
         name="driver_standing", description="View the current World Driver Championship standings."
     )

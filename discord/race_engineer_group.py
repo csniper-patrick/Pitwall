@@ -11,6 +11,7 @@ Discord embeds and plots.
 import io
 import json
 import logging
+import asyncio
 
 import discord
 import matplotlib.pyplot as plt
@@ -75,16 +76,71 @@ async def get_active_driver():
         # In other sessions (e.g., Practice), all drivers are considered active
         return [RacingNumber for RacingNumber, _ in timingDataF1["Lines"].items()]
 
+def plot_position_change(sessionInfo, driverList, lapSeries):
+    # --- Plotting Setup ---
+    # Initialize the matplotlib figure and axes for the plot.
+    fig, ax = plt.subplots(figsize=(12.0, 6.0))
+    fig.suptitle(f"{sessionInfo['Meeting']['Name']} {sessionInfo['Name']} - Position Change")
 
+    # --- Driver Styling ---
+    # Create a unique visual style (color and line style) for each driver.
+    # The color is based on the team's official color. To help differentiate
+    # teammates, the line style alternates between solid and dashed.
+    driver_style = {
+        key: {
+            "color": f"#{info['TeamColour']}",
+            "linestyle": ["solid", "dashed"][idx % 2],
+        }
+        for idx, (key, info) in enumerate(
+            sorted(driverList.items(), key=lambda item: item[1]["TeamColour"])
+        )
+    }
+    # --- Plotting Loop ---
+    # Iterate through each driver to plot their position over the course of the session.
+    xvals = []  # Stores the last lap number for each driver to place labels correctly.
+    for drv, info in sorted(
+        driverList.items(), key=lambda item: item[1]["TeamName"]
+    ):
+        style = driver_style[drv]
+        # Extract the position for each lap from the LapSeries data.
+        lap_no = list(range(len(lapSeries[drv]["LapPosition"])))
+        lap_pos = [int(i) for i in lapSeries[drv]["LapPosition"]]
+        xvals.append(max(lap_no) if lap_no else 0)
+        # Plot the driver's position data using the pre-defined style.
+        ax.plot(lap_no, lap_pos, label=info["Tla"], **style)
+
+    # --- Axis Configuration ---
+    ax.set_ylim([len(driver_style.items()) + 1, 0])  # Invert y-axis so P1 is at the top.
+    ax.set_yticks([1, 5, 10, 15, 20])  # Set ticks for major positions.
+    ax.set_xlabel("LAP")
+    ax.set_ylabel("POS")
+    ax.grid(axis="x", linestyle="--")
+
+    # --- Final Touches ---
+    fig.tight_layout()  # Adjust layout to prevent labels from being cut off.
+    # Use labellines to place driver TLA (three-letter abbreviation) next to their line.
+    labelLines(ax.get_lines(), align=False, xvals=xvals)
+
+    return fig
 class RaceEngineerGroup(app_commands.Group):
     """Slash command group for real-time race engineering data."""
 
-    def __init__(self):
-        """Initializes the RaceEngineerGroup."""
+    def __init__(self, task_semaphore: asyncio.Semaphore = asyncio.Semaphore(1)):
+        """
+        Initializes the RaceEngineerGroup.
+
+        Args:
+            task_semaphore (asyncio.Semaphore, optional): A semaphore to limit
+                concurrent plotting tasks. Defaults to a semaphore with a value of 1.
+        """
         super().__init__(
             name="race-engineer", description="Commands for the Race Engineer."
         )
         log.info("Race Engineer command group initialized.")
+        # Lock to prevent race conditions when creating the position change plot.
+        self.position_change_lock = asyncio.Lock()
+        # Semaphore to limit the number of concurrent plotting tasks.
+        self.task_semaphore = task_semaphore
 
     @app_commands.command(
         name="tyres",
@@ -415,67 +471,40 @@ class RaceEngineerGroup(app_commands.Group):
             )
             return
 
-        # --- Plotting Setup ---
-        # Initialize the matplotlib figure and axes for the plot.
-        fig, ax = plt.subplots(figsize=(12.0, 6.0))
-        fig.suptitle(f"{sessionInfo['Meeting']['Name']} {sessionInfo['Name']} - Position Change")
-
-        # --- Driver Styling ---
-        # Create a unique visual style (color and line style) for each driver.
-        # The color is based on the team's official color. To help differentiate
-        # teammates, the line style alternates between solid and dashed.
-        driver_style = {
-            key: {
-                "color": f"#{info['TeamColour']}",
-                "linestyle": ["solid", "dashed"][idx % 2],
-            }
-            for idx, (key, info) in enumerate(
-                sorted(driverList.items(), key=lambda item: item[1]["TeamColour"])
-            )
-        }
-
-        # --- Caching ---
-        # Check if a cached version of the plot exists in Redis. The plot is cached
-        # for 60 seconds to handle multiple requests quickly without regenerating the image.
-        bio = io.BytesIO()
-        cached_bytes = await redis_client.get("position_change.png")
-        if cached_bytes:
-            bio = io.BytesIO(cached_bytes)
-        else:
-            # --- Plotting Loop ---
-            # Iterate through each driver to plot their position over the course of the session.
-            xvals = []  # Stores the last lap number for each driver to place labels correctly.
-            for drv, info in sorted(
-                driverList.items(), key=lambda item: item[1]["TeamName"]
-            ):
-                style = driver_style[drv]
-                # Extract the position for each lap from the LapSeries data.
-                lap_no = list(range(len(lapSeries[drv]["LapPosition"])))
-                lap_pos = [int(i) for i in lapSeries[drv]["LapPosition"]]
-                xvals.append(max(lap_no) if lap_no else 0)
-                # Plot the driver's position data using the pre-defined style.
-                ax.plot(lap_no, lap_pos, label=info["Tla"], **style)
-
-            # --- Axis Configuration ---
-            ax.set_ylim([len(driver_style.items()) + 1, 0])  # Invert y-axis so P1 is at the top.
-            ax.set_yticks([1, 5, 10, 15, 20])  # Set ticks for major positions.
-            ax.set_xlabel("LAP")
-            ax.set_ylabel("POS")
-            ax.grid(axis="x", linestyle="--")
-
-            # --- Final Touches ---
-            fig.tight_layout()  # Adjust layout to prevent labels from being cut off.
-            # Use labellines to place driver TLA (three-letter abbreviation) next to their line.
-            labelLines(ax.get_lines(), align=False, xvals=xvals)
-
-            # --- Image Generation & Caching ---
-            # Save the plot to an in-memory binary stream and cache it in Redis.
-            fig.savefig(bio, dpi=700, format="png")
-            bio.seek(0)  # Reset stream position to the beginning.
-            await redis_client.set("position_change.png", bio.getvalue(), ex=60)
+        # --- Caching and Plot Generation ---
+        # To prevent overloading the bot with plot generation requests, this command
+        # uses a caching mechanism with a double-checked lock pattern.
+        # 1. Check for a cached plot in Redis.
+        # 2. If not found, acquire a lock and check again. This prevents a race
+        #    condition where multiple instances try to generate the plot simultaneously.
+        # 3. If still not found, acquire a semaphore to limit concurrent plotting
+        #    tasks, generate the plot in a separate thread, and cache it in Redis
+        #    for 60 seconds.
+        bio = None
+        try:
+            if cached_bytes := await redis_client.get("position_change.png"):
+                bio = io.BytesIO(cached_bytes)
+            elif await self.position_change_lock.acquire() and (cached_bytes := await redis_client.get("position_change.png")) :
+                bio = io.BytesIO(cached_bytes)
+            elif await self.task_semaphore.acquire() and (fig := await asyncio.to_thread(plot_position_change, sessionInfo, driverList, lapSeries)):
+                bio=io.BytesIO()
+                fig.savefig(bio, dpi=700, format="png")
+                bio.seek(0)
+                await redis_client.set("position_change.png", bio.getvalue(), ex=60)
+        finally:
+            if self.task_semaphore.locked():
+                self.task_semaphore.release()
+            if self.position_change_lock.locked():
+                self.position_change_lock.release()
 
         # --- Send Response ---
         # Create a discord.File object from the stream and send it.
-        attachment = discord.File(bio, filename="position_change.png")
-        await interaction.followup.send(file=attachment)
-        return
+        if bio:
+            attachment = discord.File(bio, filename="position_change.png")
+            await interaction.followup.send(file=attachment)
+        else:
+            # Handle case where plot generation fails and bio is not created
+            await interaction.followup.send(
+                content="Sorry, the position change plot could not be generated at this time.",
+                ephemeral=True,
+            )

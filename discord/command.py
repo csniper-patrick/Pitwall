@@ -5,6 +5,7 @@ from discord import app_commands
 import os
 import fastf1
 import logging
+import asyncio
 from dotenv import load_dotenv
 
 # --- Import Command Groups from their separate files ---
@@ -23,6 +24,9 @@ LOG_LEVELS = {
     "ERROR": logging.ERROR,
     "CRITICAL": logging.CRITICAL,
 }
+
+# multi thread config
+HEAVY_TASK_LIMIT=os.getenv("HEAVY_TASK_LIMIT", default=1)
 
 # Get log level from environment variable, default to 'WARNING'
 log_level_name = os.getenv("LOG_LEVEL", "WARNING").upper()
@@ -57,7 +61,8 @@ tree = app_commands.CommandTree(client)
 
 # --- Command Groups ---
 # Instantiate command groups to be used by the bot
-COMMAND_GROUPS = [StrategistGroup(), RaceEngineerGroup()]
+task_semophore = asyncio.Semaphore(HEAVY_TASK_LIMIT)
+COMMAND_GROUPS = [StrategistGroup(task_semaphore=task_semophore), RaceEngineerGroup(task_semaphore=task_semophore)]
 
 
 # --- Help Command ---
