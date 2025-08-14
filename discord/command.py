@@ -26,7 +26,7 @@ LOG_LEVELS = {
 }
 
 # multi thread config
-HEAVY_TASK_LIMIT=os.getenv("HEAVY_TASK_LIMIT", default=1)
+HEAVY_TASK_LIMIT=int(os.getenv("HEAVY_TASK_LIMIT", default=1))
 
 # Get log level from environment variable, default to 'WARNING'
 log_level_name = os.getenv("LOG_LEVEL", "WARNING").upper()
