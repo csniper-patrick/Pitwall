@@ -480,8 +480,8 @@ class RaceEngineerGroup(app_commands.Group):
         # 3. If still not found, acquire a semaphore to limit concurrent plotting
         #    tasks, generate the plot in a separate thread, and cache it in Redis
         #    for 60 seconds.
-        bio = None
         try:
+            bio = None
             if cached_bytes := await redis_client.get("position_change.png"):
                 bio = io.BytesIO(cached_bytes)
             elif await self.position_change_lock.acquire() and (cached_bytes := await redis_client.get("position_change.png")) :
@@ -496,15 +496,15 @@ class RaceEngineerGroup(app_commands.Group):
                 self.task_semaphore.release()
             if self.position_change_lock.locked():
                 self.position_change_lock.release()
-
-        # --- Send Response ---
-        # Create a discord.File object from the stream and send it.
-        if bio:
-            attachment = discord.File(bio, filename="position_change.png")
-            await interaction.followup.send(file=attachment)
-        else:
-            # Handle case where plot generation fails and bio is not created
-            await interaction.followup.send(
-                content="Sorry, the position change plot could not be generated at this time.",
-                ephemeral=True,
-            )
+            # --- Send Response ---
+            # Create a discord.File object from the stream and send it.
+            if bio:
+                attachment = discord.File(bio, filename="position_change.png")
+                await interaction.followup.send(file=attachment)
+            else:
+                # Handle case where plot generation fails and bio is not created
+                await interaction.followup.send(
+                    content="Sorry, the position change plot could not be generated at this time.",
+                    ephemeral=True,
+                )
+            return

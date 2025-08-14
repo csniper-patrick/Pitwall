@@ -61,8 +61,8 @@ tree = app_commands.CommandTree(client)
 
 # --- Command Groups ---
 # Instantiate command groups to be used by the bot
-task_semophore = asyncio.Semaphore(HEAVY_TASK_LIMIT)
-COMMAND_GROUPS = [StrategistGroup(task_semaphore=task_semophore), RaceEngineerGroup(task_semaphore=task_semophore)]
+task_semaphore = asyncio.Semaphore(HEAVY_TASK_LIMIT)
+COMMAND_GROUPS = [StrategistGroup(task_semaphore=task_semaphore), RaceEngineerGroup(task_semaphore=task_semaphore)]
 
 
 # --- Help Command ---

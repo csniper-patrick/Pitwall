@@ -718,13 +718,12 @@ class StrategistGroup(app_commands.Group):
                 )
                 # Send the file as a response to the interaction.
                 await interaction.followup.send(file=attachment)
-                return
             else:
                 # Handle cases where no data is available for plotting.
                 await interaction.followup.send(
                         content="No completed sessions available to generate a pace plot."
                     )
-                return
+            return
 
     @app_commands.command(
         name="driver_standing", description="View the current World Driver Championship standings."
