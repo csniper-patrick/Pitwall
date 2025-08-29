@@ -2,6 +2,6 @@ test-var:
   stage: test
   image: $CI_REGISTRY_IMAGE/podman-compose:latest
   script:
-    - echo ${CI_RUNNER_EXECUTABLE_ARCH}
+    - echo ${SESSION_LIST}
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'web'
+    - if: $CI_PIPELINE_SOURCE == 'web' 
