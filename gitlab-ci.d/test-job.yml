@@ -1,0 +1,6 @@
+test-var:
+  stage: test
+  script:
+    - echo ${CI_RUNNER_EXECUTABLE_ARCH}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web'
