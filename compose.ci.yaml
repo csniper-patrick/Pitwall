@@ -53,9 +53,6 @@ services:
 
   redis:
     image: docker.io/redis/redis-stack:latest
-    ports:
-      - 6379:6379
-      - 8001:8001
   
   race-control-publisher:
     <<: *publisher-dev-container
@@ -100,7 +97,3 @@ services:
   radio-discord:
     <<: *discord-dev-container
     command: discord/radio.py
-  
-  command-discord:
-    <<: *discord-dev-container
-    command: discord/command.py
