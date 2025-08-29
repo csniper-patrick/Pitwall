@@ -12,6 +12,15 @@
     - podman manifest create $IMAGE_FULLNAME:$IMAGE_TAG $IMAGE_FULLNAME:$IMAGE_TAG-amd64 $IMAGE_FULLNAME:$IMAGE_TAG-arm64
     - podman manifest push --all $IMAGE_FULLNAME:$IMAGE_TAG
 
+gitlab-commit-image:
+  <<: *container-image-release
+  variables:
+    REGISTRY_USER: "$CI_REGISTRY_USER"
+    REGISTRY_PASSWORD: "$CI_REGISTRY_PASSWORD"
+    REGISTRY: "$CI_REGISTRY"
+    IMAGE_FULLNAME: "$CI_REGISTRY_IMAGE/pitwall"
+    IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
 dockerhub-tagged-image:
   <<: *container-image-release
   variables:

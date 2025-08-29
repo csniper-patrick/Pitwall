@@ -1,5 +1,6 @@
 test-var:
   stage: test
+  image: $CI_REGISTRY_IMAGE/podman-compose:latest
   script:
     - echo ${CI_RUNNER_EXECUTABLE_ARCH}
   rules:
