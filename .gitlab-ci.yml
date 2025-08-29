@@ -8,6 +8,7 @@ variables:
       - 2024/2024-12-08_Abu_Dhabi_Grand_Prix/2024-12-08_Race/
       - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-06_Race/
       - 2025/2025-07-06_British_Grand_Prix/2025-07-06_Race/
+    description: "session for tunning test"
 
 cache: []
 
