@@ -4,4 +4,4 @@ test-var:
   script:
     - echo ${SESSION_LIST}
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'web' 
+    - if: $CI_PIPELINE_SOURCE == 'web' && $SESSION_LIST != 'None'

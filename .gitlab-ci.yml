@@ -1,7 +1,9 @@
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   SESSION_LIST:
+    value: None
     options:
+      - None
       - 2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-03_Race/
       - 2024/2024-12-08_Abu_Dhabi_Grand_Prix/2024-12-08_Race/
       - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-06_Race/
