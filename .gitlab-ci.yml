@@ -14,10 +14,10 @@ cache: []
 
 stages:
   - build
+  - test
   - report
   - deploy
   - release
-  - test
 
 include:
   - local: 'gitlab-ci.d/**.yml'

@@ -14,12 +14,16 @@
 
 gitlab-commit-image:
   <<: *container-image-release
+  stage: build
   variables:
     REGISTRY_USER: "$CI_REGISTRY_USER"
     REGISTRY_PASSWORD: "$CI_REGISTRY_PASSWORD"
     REGISTRY: "$CI_REGISTRY"
     IMAGE_FULLNAME: "$CI_REGISTRY_IMAGE/pitwall"
     IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  needs:
+    - job: build-pitwall-amd64-image
+    - job: build-pitwall-arm64-image
 
 dockerhub-tagged-image:
   <<: *container-image-release
