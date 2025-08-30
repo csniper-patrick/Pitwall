@@ -1,0 +1,66 @@
+.push-bot-testing: &push-bot-testing
+  stage: test
+  image: $CI_REGISTRY_IMAGE/podman-compose:latest
+  before_script:
+    - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - podman system service -t 0 &
+  script:
+    - podman compose -f compose.ci.yaml up -d --quiet-pull
+    - podman compose -f compose.ci.yaml wait race-control-publisher timing-publisher pitlane-publisher tyre-publisher telemetry-publisher radio-publisher
+    - sleep 30
+    - podman compose -f compose.ci.yaml down
+  resource_group: discord-test-channel
+
+race-session-test-amd64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $RACE_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(amd64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'amd64') && $RACE_SESSION_TEST != 'None'
+
+quali-session-test-amd64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $QUALI_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(amd64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'amd64') && $QUALI_SESSION_TEST != 'None'
+
+fp-session-test-amd64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $FP_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(amd64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'amd64') && $FP_SESSION_TEST != 'None'
+
+race-session-test-arm64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $RACE_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(arm64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'arm64') && $RACE_SESSION_TEST != 'None'
+  tags:
+    - saas-linux-small-arm64
+
+quali-session-test-arm64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $QUALI_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(arm64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'arm64') && $QUALI_SESSION_TEST != 'None'
+  tags:
+    - saas-linux-small-arm64
+
+fp-session-test-arm64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $FP_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(arm64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'arm64') && $FP_SESSION_TEST != 'None'
+  tags:
+    - saas-linux-small-arm64
