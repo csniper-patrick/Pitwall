@@ -6,6 +6,8 @@ test-discord-push-bod:
     - podman system service -t 0 &
   script:
     - podman compose -f compose.ci.yaml up -d --quiet-pull
-    - podman compose -f compose.ci.yaml wait race-control-publisher
+    - podman compose -f compose.ci.yaml wait race-control-publisher timing-publisher pitlane-publisher tyre-publisher telemetry-publisher radio-publisher
+    - sleep 60
+    - podman compose -f compose.ci.yaml down
   rules:
     - if: $CI_PIPELINE_SOURCE == 'web' && $SESSION_LIST != 'None'
