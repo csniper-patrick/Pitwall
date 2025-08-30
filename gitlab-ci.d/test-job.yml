@@ -5,7 +5,7 @@ test-discord-push-bod:
     - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - podman system service -t 0 &
   script:
-    - podman compose -f compose.ci.yaml up -d --quiet-pull proxy signalr redis timing-discord pitlane-discord tyre-discord radio-discord
-    - podman compose -f compose.ci.yaml run race-control-publisher
+    - podman compose -f compose.ci.yaml up -d --quiet-pull
+    - podman compose -f compose.ci.yaml wait race-control-publisher
   rules:
     - if: $CI_PIPELINE_SOURCE == 'web' && $SESSION_LIST != 'None'
