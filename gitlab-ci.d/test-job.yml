@@ -11,23 +11,56 @@
     - podman compose -f compose.ci.yaml down
   resource_group: discord-test-channel
 
-race-session-test:
+race-session-test-amd64:
   <<: *push-bot-testing
   variables:
     SESSION_LIST: $RACE_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(amd64)]"
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'web' && $RACE_SESSION_TEST != 'None'
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'amd64') && $RACE_SESSION_TEST != 'None'
 
-quali-session-test:
+quali-session-test-amd64:
   <<: *push-bot-testing
   variables:
     SESSION_LIST: $QUALI_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(amd64)]"
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'web' && $QUALI_SESSION_TEST != 'None'
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'amd64') && $QUALI_SESSION_TEST != 'None'
 
-fp-session-test:
+fp-session-test-amd64:
   <<: *push-bot-testing
   variables:
     SESSION_LIST: $FP_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(amd64)]"
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'web' && $FP_SESSION_TEST != 'None'
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'amd64') && $FP_SESSION_TEST != 'None'
+
+race-session-test-arm64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $RACE_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(arm64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'arm64') && $RACE_SESSION_TEST != 'None'
+  tags:
+    - saas-linux-small-arm64
+
+quali-session-test-arm64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $QUALI_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(arm64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'arm64') && $QUALI_SESSION_TEST != 'None'
+  tags:
+    - saas-linux-small-arm64
+
+fp-session-test-arm64:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $FP_SESSION_TEST
+    VER_TAG: " [${CI_COMMIT_SHORT_SHA}(arm64)]"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && ($TEST_ARCH == 'all' || $TEST_ARCH == 'arm64') && $FP_SESSION_TEST != 'None'
+  tags:
+    - saas-linux-small-arm64

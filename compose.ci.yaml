@@ -24,7 +24,7 @@ x-discord-dev-container: &discord-dev-container
     DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
     STARTUP_DELAY: 5
     LOG_LEVEL: DEBUG
-    VER_TAG: "[${CI_COMMIT_SHORT_SHA}]"
+    VER_TAG: ${VER_TAG}
 
 services:
 

@@ -36,6 +36,13 @@ variables:
       - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-04_Practice_1/
       - 2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-01_Practice_1/
     description: "Free Practice session for running test"
+  TEST_ARCH:
+    value: all
+    options:
+      - all
+      - amd64
+      - arm64
+    description: "Architecture to be tested"
 
 cache: []
 
