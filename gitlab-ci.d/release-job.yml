@@ -24,6 +24,7 @@ gitlab-commit-image:
   needs:
     - job: build-pitwall-amd64-image
     - job: build-pitwall-arm64-image
+  resource_group: build-pitwall-image-$CI_COMMIT_SHORT_SHA
 
 dockerhub-tagged-image:
   <<: *container-image-release

@@ -1,14 +1,41 @@
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-  SESSION_LIST:
+  RACE_SESSION_TEST:
     value: None
     options:
       - None
-      - 2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-03_Race/
-      - 2024/2024-12-08_Abu_Dhabi_Grand_Prix/2024-12-08_Race/
-      - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-06_Race/
+      - 2025/2025-07-27_Belgian_Grand_Prix/2025-07-27_Race/
+      - 2025/2025-07-27_Belgian_Grand_Prix/2025-07-26_Sprint/
       - 2025/2025-07-06_British_Grand_Prix/2025-07-06_Race/
-    description: "session for tunning test"
+      - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-06_Race/
+      - 2024/2024-12-08_Abu_Dhabi_Grand_Prix/2024-12-08_Race/
+      - 2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-03_Race/
+      - 2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-02_Sprint/
+    description: "Race session for running test"
+  QUALI_SESSION_TEST:
+    value: None
+    options:
+      - None
+      - 2025/2025-07-27_Belgian_Grand_Prix/2025-07-26_Qualifying/
+      - 2025/2025-07-27_Belgian_Grand_Prix/2025-07-25_Sprint_Qualifying/
+      - 2025/2025-07-06_British_Grand_Prix/2025-07-05_Qualifying/
+      - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-05_Qualifying/
+      - 2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-02_Qualifying/
+      - 2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-01_Sprint_Qualifying/
+    description: "Quali session for running test"
+  FP_SESSION_TEST:
+    value: None
+    options:
+      - None
+      - 2025/2025-07-27_Belgian_Grand_Prix/2025-07-25_Practice_1/
+      - 2025/2025-07-06_British_Grand_Prix/2025-07-05_Practice_3/
+      - 2025/2025-07-06_British_Grand_Prix/2025-07-04_Practice_2/
+      - 2025/2025-07-06_British_Grand_Prix/2025-07-04_Practice_1/
+      - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-05_Practice_3/
+      - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-04_Practice_2/
+      - 2025/2025-04-06_Japanese_Grand_Prix/2025-04-04_Practice_1/
+      - 2024/2024-11-03_São_Paulo_Grand_Prix/2024-11-01_Practice_1/
+    description: "Free Practice session for running test"
 
 cache: []
 

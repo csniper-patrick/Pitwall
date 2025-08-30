@@ -1,4 +1,4 @@
-test-discord-push-bod:
+.push-bot-testing: &push-bot-testing
   stage: test
   image: $CI_REGISTRY_IMAGE/podman-compose:latest
   before_script:
@@ -7,7 +7,27 @@ test-discord-push-bod:
   script:
     - podman compose -f compose.ci.yaml up -d --quiet-pull
     - podman compose -f compose.ci.yaml wait race-control-publisher timing-publisher pitlane-publisher tyre-publisher telemetry-publisher radio-publisher
-    - sleep 60
+    - sleep 30
     - podman compose -f compose.ci.yaml down
+  resource_group: discord-test-channel
+
+race-session-test:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $RACE_SESSION_TEST
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'web' && $SESSION_LIST != 'None'
+    - if: $CI_PIPELINE_SOURCE == 'web' && $RACE_SESSION_TEST != 'None'
+
+quali-session-test:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $QUALI_SESSION_TEST
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && $QUALI_SESSION_TEST != 'None'
+
+fp-session-test:
+  <<: *push-bot-testing
+  variables:
+    SESSION_LIST: $FP_SESSION_TEST
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'web' && $FP_SESSION_TEST != 'None'
