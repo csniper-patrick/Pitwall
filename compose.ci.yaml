@@ -1,0 +1,100 @@
+x-dev-container: &dev-container
+  image: ${CI_REGISTRY_IMAGE}/pitwall:${CI_COMMIT_SHORT_SHA}
+  command: sleep infinity
+
+x-publisher-dev-container: &publisher-dev-container
+  <<: *dev-container 
+  depends_on:
+    redis:
+      condition: service_started
+  environment:
+    REDIS_HOST: redis
+    USE_SSL: False
+    API_HOST: proxy
+    RETRY: False
+    STARTUP_DELAY: 10
+
+x-discord-dev-container: &discord-dev-container
+  <<: *dev-container 
+  depends_on:
+    redis:
+      condition: service_started
+  environment:
+    DISCORD_WEBHOOK: ${DISCORD_WEBHOOK}
+    DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+    STARTUP_DELAY: 5
+    LOG_LEVEL: DEBUG
+    VER_TAG: ${VER_TAG}
+
+services:
+
+  proxy:
+    image: docker.io/library/nginx:alpine
+    volumes:
+      - ./mock-api/nginx-template/:/etc/nginx/templates/:ro
+    depends_on:
+      signalr:
+        condition: service_started
+
+  signalr:
+    image: docker.io/library/python:3.13
+    volumes:
+      - ./mock-api/:/opt/
+    environment:
+      SESSION_LIST: ${SESSION_LIST}
+    command:
+      - /bin/sh
+      - -c
+      - >
+        cd /opt &&
+        python -m pip install -r requirements.txt && 
+        gunicorn -b 0.0.0.0:8000 --workers 1 --threads 64 --log-level debug --reload signalr:app
+    healthcheck:
+      test: curl --fail http://localhost:8000/ping
+
+  redis:
+    image: docker.io/redis/redis-stack:latest
+  
+  race-control-publisher:
+    <<: *publisher-dev-container
+    command: publisher/race-control.py
+  
+  timing-publisher:
+    <<: *publisher-dev-container
+    command: publisher/timing.py
+  
+  pitlane-publisher:
+    <<: *publisher-dev-container
+    command: publisher/pitlane.py
+  
+  tyre-publisher:
+    <<: *publisher-dev-container
+    command: publisher/tyre.py
+
+  telemetry-publisher:
+    <<: *publisher-dev-container
+    command: publisher/telemetry.py
+  
+  radio-publisher:
+    <<: *publisher-dev-container
+    command: publisher/radio.py
+  
+  race-control-discord:
+    <<: *discord-dev-container
+    command: discord/race-control.py
+  
+  timing-discord:
+    <<: *discord-dev-container
+    command: discord/timing.py
+  
+  pitlane-discord:
+    <<: *discord-dev-container
+    command: discord/pitlane.py
+  
+  tyre-discord:
+    <<: *discord-dev-container
+    command: discord/tyre.py
+
+  radio-discord:
+    <<: *discord-dev-container
+    command: discord/radio.py
