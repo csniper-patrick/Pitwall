@@ -1,6 +1,6 @@
 .push-bot-testing: &push-bot-testing
   stage: test
-  image: registry.gitlab.com/csniper/podman-compose-image/podman-compose:latest
+  image: registry.gitlab.com/csniper/ci-mgmt/podman-compose:latest
   before_script:
     - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - podman system service -t 0 &
