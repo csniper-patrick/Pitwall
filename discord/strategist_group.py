@@ -207,8 +207,11 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
         [driver_laps["LapTime(s)"].min() * 1.2, driver_laps["LapTime(s)"].min() + 20.0]
     )
     driver_laps = driver_laps[
-        (driver_laps["LapTime(s)"] <= threshold)
-        | (driver_laps["Session_Type"] == "Race")
+        driver_laps["Driver"].isin(driver_palette.keys())
+        & (
+            (driver_laps["LapTime(s)"] <= threshold)
+            | (driver_laps["Session_Type"] == "Race")
+        )
     ]
 
     used_compounds = sorted(
