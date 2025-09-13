@@ -55,12 +55,15 @@ stages:
   - release
 
 include:
+  # Include all job definitions except scheduled jobs
   - local: 'gitlab-ci.d/**.yml'
     rules:
       - if: '$CI_PIPELINE_SOURCE != "schedule"'
+  # Include scheduled jobs only for scheduled pipelines
   - local: 'gitlab-ci.d/scheduled-job.yml'
     rules:
       - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  # Automated code review using Gemini
   - project: 'CSniper/ci-mgmt'
     file: 'gemini-code-review.yml'
     ref: 'main'
