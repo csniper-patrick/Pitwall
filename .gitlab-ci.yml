@@ -47,6 +47,7 @@ variables:
 cache: []
 
 stages:
+  - review
   - build
   - test
   - report
@@ -60,3 +61,6 @@ include:
   - local: 'gitlab-ci.d/scheduled-job.yml'
     rules:
       - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  - project: 'CSniper/ci-mgmt'
+    file: 'gemini-code-review.yml'
+    ref: 'main'
