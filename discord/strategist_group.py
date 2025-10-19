@@ -146,6 +146,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
         .pick_track_status("1")
         for session in session_list
     ]
+    sessions_name = ', '.join([session.name for session in session_list])
     for idx, session_laps in enumerate(driver_laps_per_session):
         session_laps["Session_Type"] = session_list[idx].session_info['Type']
         session_laps['Session_Number'] = idx
@@ -171,7 +172,7 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
 
     # Initialize the matplotlib figure and axes.
     fig, ax = plt.subplots(figsize=(21, 9))
-    fig.suptitle(f"{season_idx} {event_idx} {plot_type} pace".title())
+    fig.suptitle(f"{season_idx} {event_idx} {plot_type} pace ({sessions_name})".title())
     ax.set_xlabel("Driver")
     ax.set_ylabel("Lap Time")
     # ax.grid(axis="y", linestyle="--")
