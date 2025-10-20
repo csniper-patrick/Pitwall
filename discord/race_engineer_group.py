@@ -112,8 +112,8 @@ def plot_position_change(sessionInfo, driverList, lapSeries):
         ax.plot(lap_no, lap_pos, label=info["Tla"], **style)
 
     # --- Axis Configuration ---
-    ax.set_ylim([len(driver_style.items()) + 1, 0])  # Invert y-axis so P1 is at the top.
-    ax.set_yticks([1, 5, 10, 15, 20])  # Set ticks for major positions.
+    ax.set_ylim([len(driver_style.items())+1, 0]) # Invert y-axis so P1 is at the top.
+    ax.set_yticks(list({ i for i in range(5, len(driverList), 5) }.union({1, len(driverList)}))) # Set ticks for major positions.
     ax.set_xlabel("LAP")
     ax.set_ylabel("POS")
     # Set x-axis to use integer ticks only
