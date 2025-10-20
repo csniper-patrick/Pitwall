@@ -15,6 +15,7 @@ import asyncio
 
 import discord
 import matplotlib.pyplot as plt
+import matplotlib.ticker as tick
 import redis.asyncio as redis
 from discord import app_commands
 from dotenv import load_dotenv
@@ -103,8 +104,9 @@ def plot_position_change(sessionInfo, driverList, lapSeries):
     ):
         style = driver_style[drv]
         # Extract the position for each lap from the LapSeries data.
-        lap_no = list(range(len(lapSeries[drv]["LapPosition"])))
+        lap_no = list(range(len(lapSeries[drv]["LapPosition"]) + 1))
         lap_pos = [int(i) for i in lapSeries[drv]["LapPosition"]]
+        lap_pos.append(int(info['Line']))
         xvals.append(max(lap_no) if lap_no else 0)
         # Plot the driver's position data using the pre-defined style.
         ax.plot(lap_no, lap_pos, label=info["Tla"], **style)
@@ -114,6 +116,8 @@ def plot_position_change(sessionInfo, driverList, lapSeries):
     ax.set_yticks([1, 5, 10, 15, 20])  # Set ticks for major positions.
     ax.set_xlabel("LAP")
     ax.set_ylabel("POS")
+    # Set x-axis to use integer ticks only
+    ax.xaxis.set_major_locator(tick.MaxNLocator(integer=True))
     ax.grid(axis="x", linestyle="--")
 
     # --- Final Touches ---
