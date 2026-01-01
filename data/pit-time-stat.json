@@ -1,91 +1,99 @@
 {
+  "Sakhir": {
+    "mean": 25.654,
+    "std": 3.099
+  },
+  "Melbourne": {
+    "mean": 18.278,
+    "std": 4.156
+  },
+  "Shanghai": {
+    "mean": 24.662,
+    "std": 5.67
+  },
+  "Suzuka": {
+    "mean": 25.998,
+    "std": 6.822
+  },
+  "Jeddah": {
+    "mean": 22.113,
+    "std": 3.002
+  },
+  "Miami": {
+    "mean": 23.047,
+    "std": 1.852
+  },
+  "Imola": {
+    "mean": 32.914,
+    "std": 6.62
+  },
+  "Monte Carlo": {
+    "mean": 24.991,
+    "std": 3.481
+  },
   "Catalunya": {
-    "mean": 22.905,
-    "std": 3.032
+    "mean": 22.886,
+    "std": 2.95
+  },
+  "Montreal": {
+    "mean": 22.169,
+    "std": 3.384
   },
   "Spielberg": {
-    "mean": 22.218,
-    "std": 3.497
+    "mean": 22.225,
+    "std": 3.393
   },
   "Silverstone": {
     "mean": 29.603,
-    "std": 2.512
-  },
-  "Hungaroring": {
-    "mean": 23.754,
-    "std": 4.647
+    "std": 2.534
   },
   "Spa-Francorchamps": {
-    "mean": 23.992,
-    "std": 3.637
+    "mean": 23.984,
+    "std": 3.339
+  },
+  "Hungaroring": {
+    "mean": 23.545,
+    "std": 4.424
   },
   "Zandvoort": {
-    "mean": 22.58,
-    "std": 5.379
+    "mean": 21.753,
+    "std": 5.159
   },
   "Monza": {
-    "mean": 26.001,
-    "std": 3.346
+    "mean": 25.98,
+    "std": 3.345
   },
   "Baku": {
-    "mean": 19.774,
-    "std": 2.271
+    "mean": 19.986,
+    "std": 2.153
   },
   "Singapore": {
-    "mean": 30.807,
-    "std": 3.553
+    "mean": 29.517,
+    "std": 4.088
   },
   "Austin": {
-    "mean": 24.937,
-    "std": 2.816
+    "mean": 24.958,
+    "std": 2.786
   },
   "Mexico City": {
-    "mean": 23.595,
-    "std": 3.413
+    "mean": 23.682,
+    "std": 3.484
   },
   "Interlagos": {
-    "mean": 23.176,
-    "std": 4.383
+    "mean": 23.452,
+    "std": 4.381
   },
   "Las Vegas": {
-    "mean": 22.52,
-    "std": 3.708
+    "mean": 22.729,
+    "std": 3.745
   },
   "Lusail": {
-    "mean": 29.303,
-    "std": 4.164
+    "mean": 29.528,
+    "std": 3.941
   },
   "Yas Marina Circuit": {
-    "mean": 22.602,
-    "std": 2.802
-  },
-  "Sakhir": {
-    "mean": 25.806,
-    "std": 3.363
-  },
-  "Jeddah": {
-    "mean": 23.3,
-    "std": 4.197
-  },
-  "Melbourne": {
-    "mean": 23.545,
-    "std": 3.578
-  },
-  "Monte Carlo": {
-    "mean": 24.819,
-    "std": 1.915
-  },
-  "Montreal": {
-    "mean": 24.491,
-    "std": 2.082
-  },
-  "Suzuka": {
-    "mean": 26.63,
-    "std": 7.611
-  },
-  "Imola": {
-    "mean": 33.888,
-    "std": 7.462
+    "mean": 22.552,
+    "std": 2.666
   },
   "Algarve International Circuit": {
     "mean": 25.136,
@@ -118,10 +126,6 @@
   "Sakhir Outer Track": {
     "mean": 26.159,
     "std": 5.07
-  },
-  "Shanghai": {
-    "mean": 25.643,
-    "std": 6.789
   },
   "Hockenheim": {
     "mean": 21.421,
