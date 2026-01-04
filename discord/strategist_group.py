@@ -742,77 +742,85 @@ class StrategistGroup(app_commands.Group):
         Args:
             interaction: The Discord interaction object.
         """
-        # Get current driver standings from the Ergast API
-        driver_standings = (
-            Ergast()
-            .get_driver_standings(
-                season=datetime.datetime.now(datetime.timezone.utc).year
-            )
-            .content[0]
-        )
-
-        # Define points awarded for different race formats
-        POINTS_FOR_CONVENTIONAL = 25  # Winning a conventional race
-        POINTS_FOR_SPRINT = (
-            8 + 25
-        )  # Winning a sprint race (includes sprint race win and Sunday race win)
-
-        # Get remaining events in the current season
-        events = fastf1.events.get_events_remaining(include_testing=True)
-
-        # Calculate total possible points from remaining events based on their format
-        sprint_points = (
-            len(events.loc[events["EventFormat"] == "sprint_qualifying"])
-            * POINTS_FOR_SPRINT
-        )
-        conventional_points = (
-            len(events.loc[events["EventFormat"] == "conventional"])
-            * POINTS_FOR_CONVENTIONAL
-        )
-        total_points_remaining = (
-            sprint_points + conventional_points
-        )  # Maximum points a driver can still earn
-
-        # Determine the points of the current leader
-        LEADER_POINTS = int(driver_standings.loc[0]["points"])
-
-        # Filter drivers into those still mathematically in contention for the championship and those out of contention
-        driver_in_contention = driver_standings[
-            driver_standings["points"] >= LEADER_POINTS - total_points_remaining
-        ]
-        driver_outof_contention = driver_standings[
-            driver_standings["points"] < LEADER_POINTS - total_points_remaining
-        ]
-
-        # Create a Discord embed for drivers still in contention
-        embed_in_contention = discord.Embed(
-            title="World Driver Champion",
-            color=discord.Color.gold(),
-            description=f"{total_points_remaining} points remaining in the season"
-        )
-        for _, driver in driver_in_contention.iterrows():
-            embed_in_contention.add_field(
-                name=f"{driver['givenName']} {driver['familyName']}",
-                value=f"`{driver['points']}`",
-                inline=False,
+        log.info(f"Command '/strategist driver_standing' invoked by {interaction.user}")
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            # Get current driver standings from the Ergast API
+            driver_standings = (
+                Ergast()
+                .get_driver_standings(
+                    season=datetime.datetime.now(datetime.timezone.utc).year
+                )
+                .content[0]
             )
 
-        # If there are drivers out of contention, create a separate embed for them
-        if not driver_outof_contention.empty:
-            embed_outof_contention = discord.Embed(title="Out of Contention")
-            for _, driver in driver_outof_contention.iterrows():
-                embed_outof_contention.add_field(
+            # Define points awarded for different race formats
+            POINTS_FOR_CONVENTIONAL = 25  # Winning a conventional race
+            POINTS_FOR_SPRINT = (
+                8 + 25
+            )  # Winning a sprint race (includes sprint race win and Sunday race win)
+
+            # Get remaining events in the current season
+            events = fastf1.events.get_events_remaining(include_testing=True)
+
+            # Calculate total possible points from remaining events based on their format
+            sprint_points = (
+                len(events.loc[events["EventFormat"] == "sprint_qualifying"])
+                * POINTS_FOR_SPRINT
+            )
+            conventional_points = (
+                len(events.loc[events["EventFormat"] == "conventional"])
+                * POINTS_FOR_CONVENTIONAL
+            )
+            total_points_remaining = (
+                sprint_points + conventional_points
+            )  # Maximum points a driver can still earn
+
+            # Determine the points of the current leader
+            LEADER_POINTS = int(driver_standings.loc[0]["points"])
+
+            # Filter drivers into those still mathematically in contention for the championship and those out of contention
+            driver_in_contention = driver_standings[
+                driver_standings["points"] >= LEADER_POINTS - total_points_remaining
+            ]
+            driver_outof_contention = driver_standings[
+                driver_standings["points"] < LEADER_POINTS - total_points_remaining
+            ]
+
+            # Create a Discord embed for drivers still in contention
+            embed_in_contention = discord.Embed(
+                title="World Driver Champion",
+                color=discord.Color.gold(),
+                description=f"{total_points_remaining} points remaining in the season"
+            )
+            for _, driver in driver_in_contention.iterrows():
+                embed_in_contention.add_field(
                     name=f"{driver['givenName']} {driver['familyName']}",
                     value=f"`{driver['points']}`",
                     inline=False,
                 )
-            await interaction.response.send_message(
-                embeds=[embed_in_contention, embed_outof_contention], ephemeral=True
-            )
-        else:
-            # If all drivers are still in contention, send only the first embed
-            await interaction.response.send_message(
-                embeds=[embed_in_contention], ephemeral=True
+
+            # If there are drivers out of contention, create a separate embed for them
+            if not driver_outof_contention.empty:
+                embed_outof_contention = discord.Embed(title="Out of Contention")
+                for _, driver in driver_outof_contention.iterrows():
+                    embed_outof_contention.add_field(
+                        name=f"{driver['givenName']} {driver['familyName']}",
+                        value=f"`{driver['points']}`",
+                        inline=False,
+                    )
+                await interaction.followup.send(
+                    embeds=[embed_in_contention, embed_outof_contention]
+                )
+            else:
+                # If all drivers are still in contention, send only the first embed
+                await interaction.followup.send(
+                    embeds=[embed_in_contention]
+                )
+        except Exception as e:
+            log.error(f"Error executing '/strategist driver_standing': {e}", exc_info=True)
+            await interaction.followup.send(
+                "❌ An error occurred while fetching driver standings."
             )
 
     @app_commands.command(
@@ -829,75 +837,83 @@ class StrategistGroup(app_commands.Group):
         Args:
             interaction: The Discord interaction object.
         """
-        # Get current constructor standings from the Ergast API
-        constructor_standings = (
-            Ergast()
-            .get_constructor_standings(
-                season=datetime.datetime.now(datetime.timezone.utc).year
-            )
-            .content[0]
-        )
-
-        # Define points awarded for different race formats, considering both drivers' potential scores
-        POINTS_FOR_CONVENTIONAL = 25 + 18  # Top two positions in a conventional race
-        POINTS_FOR_SPRINT = (
-            8 + 7 + POINTS_FOR_CONVENTIONAL
-        )  # Points from sprint (for top 8) plus top two in the main race
-
-        # Get remaining events in the current season
-        events = fastf1.events.get_events_remaining(include_testing=True)
-
-        # Calculate total possible points from remaining events based on their format
-        sprint_points = (
-            len(events.loc[events["EventFormat"] == "sprint_qualifying"])
-            * POINTS_FOR_SPRINT
-        )
-        conventional_points = (
-            len(events.loc[events["EventFormat"] == "conventional"])
-            * POINTS_FOR_CONVENTIONAL
-        )
-        total_points_remaining = (
-            sprint_points + conventional_points
-        )  # Maximum points a constructor can still earn
-
-        # Determine the points of the current leader
-        LEADER_POINTS = int(constructor_standings.loc[0]["points"])
-
-        # Filter constructors into those still mathematically in contention and those out of contention
-        constructor_in_contention = constructor_standings[
-            constructor_standings["points"] >= LEADER_POINTS - total_points_remaining
-        ]
-        constructor_outof_contention = constructor_standings[
-            constructor_standings["points"] < LEADER_POINTS - total_points_remaining
-        ]
-
-        # Create a Discord embed for constructors still in contention
-        embed_in_contention = discord.Embed(
-            title="World Constructor Champion",
-            color=discord.Color.gold(),
-            description=f"{total_points_remaining} points remaining in the season"
-        )
-        for _, constructor in constructor_in_contention.iterrows():
-            embed_in_contention.add_field(
-                name=f"{constructor['constructorName']}",
-                value=f"`{constructor['points']}`",
-                inline=False,
+        log.info(f"Command '/strategist team_standing' invoked by {interaction.user}")
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            # Get current constructor standings from the Ergast API
+            constructor_standings = (
+                Ergast()
+                .get_constructor_standings(
+                    season=datetime.datetime.now(datetime.timezone.utc).year
+                )
+                .content[0]
             )
 
-        # If there are constructors out of contention, create a separate embed
-        if not constructor_outof_contention.empty:
-            embed_outof_contention = discord.Embed(title="Out of Contention")
-            for _, constructor in constructor_outof_contention.iterrows():
-                embed_outof_contention.add_field(
+            # Define points awarded for different race formats, considering both drivers' potential scores
+            POINTS_FOR_CONVENTIONAL = 25 + 18  # Top two positions in a conventional race
+            POINTS_FOR_SPRINT = (
+                8 + 7 + POINTS_FOR_CONVENTIONAL
+            )  # Points from sprint (for top 8) plus top two in the main race
+
+            # Get remaining events in the current season
+            events = fastf1.events.get_events_remaining(include_testing=True)
+
+            # Calculate total possible points from remaining events based on their format
+            sprint_points = (
+                len(events.loc[events["EventFormat"] == "sprint_qualifying"])
+                * POINTS_FOR_SPRINT
+            )
+            conventional_points = (
+                len(events.loc[events["EventFormat"] == "conventional"])
+                * POINTS_FOR_CONVENTIONAL
+            )
+            total_points_remaining = (
+                sprint_points + conventional_points
+            )  # Maximum points a constructor can still earn
+
+            # Determine the points of the current leader
+            LEADER_POINTS = int(constructor_standings.loc[0]["points"])
+
+            # Filter constructors into those still mathematically in contention and those out of contention
+            constructor_in_contention = constructor_standings[
+                constructor_standings["points"] >= LEADER_POINTS - total_points_remaining
+            ]
+            constructor_outof_contention = constructor_standings[
+                constructor_standings["points"] < LEADER_POINTS - total_points_remaining
+            ]
+
+            # Create a Discord embed for constructors still in contention
+            embed_in_contention = discord.Embed(
+                title="World Constructor Champion",
+                color=discord.Color.gold(),
+                description=f"{total_points_remaining} points remaining in the season"
+            )
+            for _, constructor in constructor_in_contention.iterrows():
+                embed_in_contention.add_field(
                     name=f"{constructor['constructorName']}",
                     value=f"`{constructor['points']}`",
                     inline=False,
                 )
-            await interaction.response.send_message(
-                embeds=[embed_in_contention, embed_outof_contention], ephemeral=True
-            )
-        else:
-            # If all constructors are still in contention, send only the first embed
-            await interaction.response.send_message(
-                embeds=[embed_in_contention], ephemeral=True
+
+            # If there are constructors out of contention, create a separate embed
+            if not constructor_outof_contention.empty:
+                embed_outof_contention = discord.Embed(title="Out of Contention")
+                for _, constructor in constructor_outof_contention.iterrows():
+                    embed_outof_contention.add_field(
+                        name=f"{constructor['constructorName']}",
+                        value=f"`{constructor['points']}`",
+                        inline=False,
+                    )
+                await interaction.followup.send(
+                    embeds=[embed_in_contention, embed_outof_contention]
+                )
+            else:
+                # If all constructors are still in contention, send only the first embed
+                await interaction.followup.send(
+                    embeds=[embed_in_contention]
+                )
+        except Exception as e:
+            log.error(f"Error executing '/strategist team_standing': {e}", exc_info=True)
+            await interaction.followup.send(
+                "❌ An error occurred while fetching constructor standings."
             )
