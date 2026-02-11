@@ -105,7 +105,7 @@ async def connectLiveTiming():
         try:
             async with websockets.connect(
                 f"{websocketUrl}/connect?{params}",
-                extra_headers=extra_headers,
+                additional_headers=extra_headers,
                 ping_interval=None,
             ) as sock:
                 # Subscribe to the compressed data streams.
