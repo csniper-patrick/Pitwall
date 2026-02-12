@@ -27,6 +27,7 @@ variables:
     value: None
     options:
       - None
+      - 2026/2026-02-13_Pre-Season_Testing/2026-02-11_Day_1/
       - 2025/2025-07-27_Belgian_Grand_Prix/2025-07-25_Practice_1/
       - 2025/2025-07-06_British_Grand_Prix/2025-07-05_Practice_3/
       - 2025/2025-07-06_British_Grand_Prix/2025-07-04_Practice_2/
