@@ -63,7 +63,12 @@ def load_config() -> Tuple[str, str, Dict[str, Any], str, int, str, bool]:
             "BLACK": 2303786,
         },
         "flagSymbol": {"CHEQUERED": ":checkered_flag:", "BLACK": ":flag_black:"},
-        "modeColor": {"SAFETY CAR": 15844367, "VIRTUAL SAFETY CAR": 15844367},
+        "modeColor": {
+            "SAFETY CAR": 15844367,
+            "SC": 15844367,
+            "VIRTUAL SAFETY CAR": 15844367,
+            "VSC": 15844367
+        },
         "compoundColor": {
             "SOFT": 15548997,  # RED
             "MEDIUM": 16776960,  # YELLOW
