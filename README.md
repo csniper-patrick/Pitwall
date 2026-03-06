@@ -181,6 +181,26 @@ The following environment variables are used to configure the services:
 | `REDIS_PORT` | No | The port for the Redis service. Defaults to `6379`. |
 | `RETRY` | No | Whether the publisher should retry connecting on failure. Defaults to `True`. |
 
+### Add Bot to Server
+Use **OAuth2 URL Generator**
+Scopes:
+* `bot`
+* `applications.commands`
+
+Bot Permissions: 
+* `Send Messages`
+* `Create Public Threads`
+* `Create Private Threads`
+* `Send Messages in Threads`
+* `Send TTS Messages`
+* `Embed Links`
+* `Attach Files`
+* `Add Reactions`
+* `Use Slash Commands`
+* `Use External Emojis`
+* `Use External Stickers`
+* `Use External Apps`
+
 ## Acknowledgment
 
 This project is a continuation of the [Race Control Bot](https://gitlab.com/CSniper/race-control-bot) and would not be possible without referencing [Philipp Schaefer (theOehrly)](https://github.com/theOehrly)'s incredible work on [FastF1](https://github.com/theOehrly/Fast-F1). If you want to know more about how to use the live timing endpoint, definitely check out his code.
