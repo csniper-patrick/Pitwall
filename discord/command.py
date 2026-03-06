@@ -76,36 +76,28 @@ async def help_command(interaction: discord.Interaction):
     app_id = { f"{app_command.name}": app_command.id for app_command in await tree.fetch_commands() }
 
     embed = discord.Embed(
-        title="Pitwall Commands",
-        description="Pitwall commands are organized into functional groups. Use the `list` command within each group to see all available commands:",
+        title="Pitwall",
+        description="Pitwall provides commands to assist F1 fans with live and archive data.",
         color=discord.Color.blurple(),
     )
-
-    # Add the help command itself to the list
-    embed.add_field(
-        name="General Commands",
-        value=f"</pitwall-help:{app_id['pitwall-help']}>: Shows this help message.",
-        inline=False,
-    )
-
     for group in COMMAND_GROUPS:
         if isinstance(group, app_commands.Group):
             group_name_title = " ".join(
                 word.capitalize() for word in group.name.split("-")
             )
             # Define data source based on group name
-            data_source = " (Archive Data)" if group.name == "strategist" else " (Live Data)"
+            data_source = "(Archive Data)" if group.name == "strategist" else "(Live Data)"
             
             embed.add_field(
-                name=f"{group_name_title} Commands{data_source}",
-                value=f"Use </{group.name} list:{app_id[group.name]}> to see all {group_name_title} commands.",
+                name=f"{group_name_title} Commands {data_source}",
+                value=f"</{group.name} list:{app_id[group.name]}> to see all {group_name_title} commands.",
                 inline=False,
             )
 
     # Add a field for project contribution
     embed.add_field(
         name="❤️ Support & 💪🏻Contribute",
-        value="Pitwall is an open-source project! If you find it useful, please consider starring the project or contributing with code\n"
+        value="Pitwall is open-sourced! If you find it useful, please consider starring the project or contributing with code\n"
         "- [GitLab - Pitwall](https://gitlab.com/CSniper/pitwall)\n"
         "- [GitHub - Pitwall (mirror)](https://github.com/csniper-patrick/Pitwall)\n",
         inline=False,
