@@ -67,45 +67,40 @@ COMMAND_GROUPS = [StrategistGroup(task_semaphore=task_semaphore), RaceEngineerGr
 
 # --- Help Command ---
 @tree.command(
-    name="pitwall-help", description="Shows a list of all available commands."
+    name="pitwall-help", description="Shows a list of all available command groups."
 )
 async def help_command(interaction: discord.Interaction):
-    """Displays a helpful message listing all commands."""
+    """Displays a helpful message listing command groups."""
     log.info(f"Command '/pitwall-help' invoked by {interaction.user}")
 
     app_id = { f"{app_command.name}": app_command.id for app_command in await tree.fetch_commands() }
 
     embed = discord.Embed(
         title="Pitwall Commands",
-        description="Here are all the commands you can use with the Pitwall bot:",
+        description="Pitwall commands are organized into functional groups. Use the `list` command within each group to see all available commands:",
         color=discord.Color.blurple(),
     )
 
     # Add the help command itself to the list
     embed.add_field(
         name="General Commands",
-        value=f"</pitwall-help:{app_id['pitwall-help']}>: Shows this help message.\n\n"
-        "Output of all the following commands are only visible to you",
+        value=f"</pitwall-help:{app_id['pitwall-help']}>: Shows this help message.",
         inline=False,
     )
 
     for group in COMMAND_GROUPS:
         if isinstance(group, app_commands.Group):
-            # Format command names and descriptions for the embed
-            cmds = [
-                f"</{group.name} {cmd.name}:{app_id[group.name]}>: {cmd.description}\n"
-                for cmd in group.commands
-            ]
-            if cmds:
-                # Create a nice title from the group name (e.g., 'race-engineer' -> 'Race Engineer')
-                group_name_title = " ".join(
-                    word.capitalize() for word in group.name.split("-")
-                )
-                embed.add_field(
-                    name=f"{group_name_title} Commands",
-                    value="\n".join(cmds),
-                    inline=False,
-                )
+            group_name_title = " ".join(
+                word.capitalize() for word in group.name.split("-")
+            )
+            # Define data source based on group name
+            data_source = " (Archive Data)" if group.name == "strategist" else " (Live Data)"
+            
+            embed.add_field(
+                name=f"{group_name_title} Commands{data_source}",
+                value=f"Use </{group.name} list:{app_id[group.name]}> to see all {group_name_title} commands.",
+                inline=False,
+            )
 
     # Add a field for project contribution
     embed.add_field(

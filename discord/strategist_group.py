@@ -917,3 +917,25 @@ class StrategistGroup(app_commands.Group):
             await interaction.followup.send(
                 "❌ An error occurred while fetching constructor standings."
             )
+
+    @app_commands.command(
+        name="list", description="Shows a list of all available strategist commands."
+    )
+    async def list_commands(self, interaction: discord.Interaction):
+        """Displays a helpful message listing all strategist commands."""
+        log.info(f"Command '/strategist list' invoked by {interaction.user}")
+
+        embed = discord.Embed(
+            title="Strategist Commands",
+            description="Here are all the commands available in the strategist group:",
+            color=discord.Color.blurple(),
+        )
+
+        for cmd in self.commands:
+            embed.add_field(
+                name=f"/{self.name} {cmd.name}",
+                value=cmd.description,
+                inline=False,
+            )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)

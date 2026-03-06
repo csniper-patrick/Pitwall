@@ -512,3 +512,25 @@ class RaceEngineerGroup(app_commands.Group):
                     ephemeral=True,
                 )
             return
+
+    @app_commands.command(
+        name="list", description="Shows a list of all available race engineer commands."
+    )
+    async def list_commands(self, interaction: discord.Interaction):
+        """Displays a helpful message listing all race engineer commands."""
+        log.info(f"Command '/race-engineer list' invoked by {interaction.user}")
+
+        embed = discord.Embed(
+            title="Race Engineer Commands",
+            description="Here are all the commands available in the race-engineer group:",
+            color=discord.Color.blurple(),
+        )
+
+        for cmd in self.commands:
+            embed.add_field(
+                name=f"/{self.name} {cmd.name}",
+                value=cmd.description,
+                inline=False,
+            )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
