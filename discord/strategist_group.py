@@ -925,6 +925,8 @@ class StrategistGroup(app_commands.Group):
         """Displays a helpful message listing all strategist commands."""
         log.info(f"Command '/strategist list' invoked by {interaction.user}")
 
+        group_id = interaction.data.get("id")
+
         embed = discord.Embed(
             title="Strategist Commands",
             description="Here are all the commands available in the strategist group:",
@@ -932,8 +934,10 @@ class StrategistGroup(app_commands.Group):
         )
 
         for cmd in self.commands:
+            # Format: </group-name subcommand-name:group-id>
+            cmd_mention = f"</{self.name} {cmd.name}:{group_id}>" if group_id else f"/{self.name} {cmd.name}"
             embed.add_field(
-                name=f"/{self.name} {cmd.name}",
+                name=cmd_mention,
                 value=cmd.description,
                 inline=False,
             )
