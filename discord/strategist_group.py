@@ -80,7 +80,9 @@ async def event_autocomplete(
     log.debug(f"Event autocomplete for '{current}': Found {len(choices)} choices.")
     return choices
 
-def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
+def pace_plot(
+    plot_type, season_idx, event_idx, session_idx, driverList, session_type=None
+):
     """
     Generates a pace analysis plot for drivers or teams.
 
@@ -95,6 +97,8 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
         session_idx (int): The number of the last completed session to include data from.
         driverList (dict): A dictionary of live driver data from Redis, used for
                            ordering and team color information.
+        session_type (str, optional): The type of session to filter by (e.g., 'practice',
+                                      'qualifying', 'race'). Defaults to None.
 
     Returns:
         matplotlib.figure.Figure or None: The generated plot figure, or None if
@@ -111,6 +115,13 @@ def pace_plot(plot_type, season_idx, event_idx, session_idx, driverList):
     # We disable telemetry loading as we only need lap data.
     for session in session_list:
         session.load(telemetry=False, weather=True, messages=True)
+
+    if session_type:
+        session_list = [
+            session
+            for session in session_list
+            if session_type in session.session_info["Type"].lower()
+        ]
 
     if len(session_list) == 0:
         return None
@@ -526,7 +537,18 @@ class StrategistGroup(app_commands.Group):
         name="driver_pace",
         description="Generates a box plot of lap times for each driver from all completed sessions of the current event.",
     )
-    async def driver_pace(self, interaction: discord.Interaction):
+    @app_commands.choices(
+        session_type=[
+            app_commands.Choice(name="Practice", value="practice"),
+            app_commands.Choice(name="Qualifying", value="qualifying"),
+            app_commands.Choice(name="Race", value="race"),
+        ]
+    )
+    async def driver_pace(
+        self,
+        interaction: discord.Interaction,
+        session_type: Optional[app_commands.Choice[str]] = None,
+    ):
         """
         Generates and sends a box plot of driver pace for the current event.
 
@@ -537,8 +559,11 @@ class StrategistGroup(app_commands.Group):
 
         Args:
             interaction: The Discord interaction object.
+            session_type: The type of session to filter by (optional).
         """
-        log.info(f"Command '/strategist driver_pace' invoked by {interaction.user}")
+        log.info(
+            f"Command '/strategist driver_pace' invoked by {interaction.user} (Session Type: {session_type.value if session_type else 'All'})"
+        )
         await interaction.response.defer(ephemeral=True, thinking=True)
         # --- Live Data Fetching for Context ---
         # This command analyzes historical data, but it needs live context to know *which*
@@ -580,7 +605,8 @@ class StrategistGroup(app_commands.Group):
             "session": int(session_number_mapping[sessionInfo["Name"]])
             - int("Complete" != sessionInfo["ArchiveStatus"]["Status"]),
         }
-        plot_name = f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
+        session_type_val = session_type.value if session_type else ""
+        plot_name = f"driver-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}{'-' + session_type_val if session_type_val else ''}.png"
         # --- Caching & Plot Generation ---
         # The plot is cached in Redis to avoid regenerating it on every request.
         # A lock is used to prevent race conditions from multiple simultaneous requests.
@@ -590,10 +616,22 @@ class StrategistGroup(app_commands.Group):
             if cached_bytes := await redis_client.get(plot_name):
                 bio = io.BytesIO(cached_bytes)
             # If not cached, acquire a lock and re-check the cache (double-checked locking).
-            elif await self.driver_pace_lock.acquire() and (cached_bytes := await redis_client.get(plot_name)):
+            elif await self.driver_pace_lock.acquire() and (
+                cached_bytes := await redis_client.get(plot_name)
+            ):
                 bio = io.BytesIO(cached_bytes)
             # If still not cached, generate the plot.
-            elif await self.task_semaphore.acquire() and (fig := await asyncio.to_thread(pace_plot, 'driver', session_idx['year'], session_idx['event'], session_idx['session'], driverList)):
+            elif await self.task_semaphore.acquire() and (
+                fig := await asyncio.to_thread(
+                    pace_plot,
+                    "driver",
+                    session_idx["year"],
+                    session_idx["event"],
+                    session_idx["session"],
+                    driverList,
+                    session_type.value if session_type else None,
+                )
+            ):
                 bio = io.BytesIO()
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
@@ -601,7 +639,7 @@ class StrategistGroup(app_commands.Group):
                 await redis_client.set(
                     plot_name,
                     bio.getvalue(),
-                    ex=86400, # 1 day
+                    ex=86400,  # 1 day
                 )
         finally:
             # Ensure the lock is always released.
@@ -629,7 +667,18 @@ class StrategistGroup(app_commands.Group):
         name="team_pace",
         description="Generates a box plot of lap times for each team from all completed sessions of the current event.",
     )
-    async def team_pace(self, interaction: discord.Interaction):
+    @app_commands.choices(
+        session_type=[
+            app_commands.Choice(name="Practice", value="practice"),
+            app_commands.Choice(name="Qualifying", value="qualifying"),
+            app_commands.Choice(name="Race", value="race"),
+        ]
+    )
+    async def team_pace(
+        self,
+        interaction: discord.Interaction,
+        session_type: Optional[app_commands.Choice[str]] = None,
+    ):
         """
         Generates and sends a box plot of team pace for the current event.
 
@@ -640,8 +689,11 @@ class StrategistGroup(app_commands.Group):
 
         Args:
             interaction: The Discord interaction object.
+            session_type: The type of session to filter by (optional).
         """
-        log.info(f"Command '/strategist team_pace' invoked by {interaction.user}")
+        log.info(
+            f"Command '/strategist team_pace' invoked by {interaction.user} (Session Type: {session_type.value if session_type else 'All'})"
+        )
         await interaction.response.defer(ephemeral=True, thinking=True)
         # --- Live Data Fetching for Context ---
         # This command analyzes historical data, but it needs live context to know *which*
@@ -683,7 +735,8 @@ class StrategistGroup(app_commands.Group):
             "session": int(session_number_mapping[sessionInfo["Name"]])
             - int("Complete" != sessionInfo["ArchiveStatus"]["Status"]),
         }
-        plot_name = f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}.png"
+        session_type_val = session_type.value if session_type else ""
+        plot_name = f"team-pace-{session_idx['year']}-{session_idx['event']}-{session_idx['session']}{'-' + session_type_val if session_type_val else ''}.png"
         # --- Caching & Plot Generation ---
         # The plot is cached in Redis to avoid regenerating it on every request.
         # A lock is used to prevent race conditions from multiple simultaneous requests.
@@ -693,10 +746,22 @@ class StrategistGroup(app_commands.Group):
             if cached_bytes := await redis_client.get(plot_name):
                 bio = io.BytesIO(cached_bytes)
             # If not cached, acquire a lock and re-check the cache (double-checked locking).
-            elif await self.team_pace_lock.acquire() and (cached_bytes := await redis_client.get(plot_name)):
+            elif await self.team_pace_lock.acquire() and (
+                cached_bytes := await redis_client.get(plot_name)
+            ):
                 bio = io.BytesIO(cached_bytes)
             # If still not cached, generate the plot.
-            elif await self.task_semaphore.acquire() and (fig := await asyncio.to_thread(pace_plot, 'team', session_idx['year'], session_idx['event'], session_idx['session'], driverList)):
+            elif await self.task_semaphore.acquire() and (
+                fig := await asyncio.to_thread(
+                    pace_plot,
+                    "team",
+                    session_idx["year"],
+                    session_idx["event"],
+                    session_idx["session"],
+                    driverList,
+                    session_type.value if session_type else None,
+                )
+            ):
                 bio = io.BytesIO()
                 fig.savefig(bio, dpi=600, format="png")
                 bio.seek(0)
@@ -704,7 +769,7 @@ class StrategistGroup(app_commands.Group):
                 await redis_client.set(
                     plot_name,
                     bio.getvalue(),
-                    ex=86400, # 1 day
+                    ex=86400,  # 1 day
                 )
         finally:
             # Ensure the lock is always released.
