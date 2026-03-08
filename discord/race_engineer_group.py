@@ -514,11 +514,11 @@ class RaceEngineerGroup(app_commands.Group):
             return
 
     @app_commands.command(
-        name="list", description="Shows a list of all available race engineer commands."
+        name="help", description="Shows a list of all available race engineer commands."
     )
-    async def list_commands(self, interaction: discord.Interaction):
+    async def help_commands(self, interaction: discord.Interaction):
         """Displays a helpful message listing all race engineer commands."""
-        log.info(f"Command '/race-engineer list' invoked by {interaction.user}")
+        log.info(f"Command '/race-engineer help' invoked by {interaction.user}")
 
         group_id = interaction.data.get("id")
 

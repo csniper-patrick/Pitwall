@@ -90,7 +90,7 @@ async def help_command(interaction: discord.Interaction):
             
             embed.add_field(
                 name=f"{group_name_title} Commands {data_source}",
-                value=f"</{group.name} list:{app_id[group.name]}> to see all {group_name_title} commands.",
+                value=f"</{group.name} help:{app_id[group.name]}> to see all {group_name_title} commands.",
                 inline=False,
             )
 

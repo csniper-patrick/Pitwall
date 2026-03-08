@@ -919,11 +919,11 @@ class StrategistGroup(app_commands.Group):
             )
 
     @app_commands.command(
-        name="list", description="Shows a list of all available strategist commands."
+        name="help", description="Shows a list of all available strategist commands."
     )
-    async def list_commands(self, interaction: discord.Interaction):
+    async def help_commands(self, interaction: discord.Interaction):
         """Displays a helpful message listing all strategist commands."""
-        log.info(f"Command '/strategist list' invoked by {interaction.user}")
+        log.info(f"Command '/strategist help' invoked by {interaction.user}")
 
         group_id = interaction.data.get("id")
 
