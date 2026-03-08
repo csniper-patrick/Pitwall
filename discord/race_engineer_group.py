@@ -486,15 +486,15 @@ class RaceEngineerGroup(app_commands.Group):
         #    for 60 seconds.
         try:
             bio = None
-            if cached_bytes := await redis_client.get("position_change.png"):
+            if cached_bytes := await redis_client.get(f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png"):
                 bio = io.BytesIO(cached_bytes)
-            elif await self.position_change_lock.acquire() and (cached_bytes := await redis_client.get("position_change.png")) :
+            elif await self.position_change_lock.acquire() and (cached_bytes := await redis_client.get(f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png")) :
                 bio = io.BytesIO(cached_bytes)
             elif await self.task_semaphore.acquire() and (fig := await asyncio.to_thread(plot_position_change, sessionInfo, driverList, lapSeries)):
                 bio=io.BytesIO()
                 fig.savefig(bio, dpi=700, format="png")
                 bio.seek(0)
-                await redis_client.set("position_change.png", bio.getvalue(), ex=60)
+                await redis_client.set(f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png", bio.getvalue(), ex=( 60 if sessionInfo['ArchiveStatus']["Status"] != "Complete" else 86400 ))
         finally:
             if self.task_semaphore.locked():
                 self.task_semaphore.release()
@@ -503,7 +503,7 @@ class RaceEngineerGroup(app_commands.Group):
             # --- Send Response ---
             # Create a discord.File object from the stream and send it.
             if bio:
-                attachment = discord.File(bio, filename="position_change.png")
+                attachment = discord.File(bio, filename=f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png")
                 await interaction.followup.send(file=attachment)
             else:
                 # Handle case where plot generation fails and bio is not created
