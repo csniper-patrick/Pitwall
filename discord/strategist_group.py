@@ -266,10 +266,10 @@ def pace_plot(
         # 2. Overlay a swarm plot to show each individual valid lap.
         #    Each point is colored by the tyre compound used for that lap, providing
         #    deeper insight into the pace on different compounds.
-        for session_no in range(session_idx):
+        for session_no in range(len(session_list)):
             session_type = session_list[session_no].session_info['Type']
             marker = session_type_marker[session_type]
-            tire_palette_adj = { key: to_rgba(val, alpha=(session_no + 1.)/session_idx) for key, val in tire_palette.items() }
+            tire_palette_adj = { key: to_rgba(val, alpha=(session_no + 1.)/len(session_list)) for key, val in tire_palette.items() }
             sns.swarmplot(
                 data=driver_laps[ driver_laps['Session_Number'] == session_no ],
                 x="Driver",
@@ -308,10 +308,10 @@ def pace_plot(
         # 2. Overlay a swarm plot to show each individual valid lap.
         #    Each point is colored by the tyre compound used for that lap, providing
         #    deeper insight into the pace on different compounds.
-        for session_no in range(session_idx):
+        for session_no in range(len(session_list)):
             session_type = session_list[session_no].session_info['Type']
             marker = session_type_marker[session_type]
-            tire_palette_adj = { key: to_rgba(val, alpha=(session_no + 1.)/session_idx) for key, val in tire_palette.items() }
+            tire_palette_adj = { key: to_rgba(val, alpha=(session_no + 1.)/len(session_list)) for key, val in tire_palette.items() }
             sns.swarmplot(
                 data=driver_laps[ driver_laps['Session_Number'] == session_no ],
                 x="Team",
