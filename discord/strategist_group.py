@@ -120,7 +120,7 @@ def pace_plot(
         session_list = [
             session
             for session in session_list
-            if session_type in session.session_info["Type"].lower()
+            if session_type == session.session_info["Type"].lower()
         ]
 
     if len(session_list) == 0:
