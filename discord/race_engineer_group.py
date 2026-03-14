@@ -273,7 +273,7 @@ class RaceEngineerGroup(app_commands.Group):
         humidity_str = 'N/A'
         if humidity_val != 'N/A':
             try:
-                humidity_str = f"{int(humidity_val)}%"
+                humidity_str = f"{float(humidity_val):.1f}%"
             except (ValueError, TypeError):
                 pass
 
@@ -282,7 +282,7 @@ class RaceEngineerGroup(app_commands.Group):
         pressure_str = 'N/A'
         if pressure_val != 'N/A':
             try:
-                pressure_str = f"{int(pressure_val)} hPa"
+                pressure_str = f"{float(pressure_val):.1f} hPa"
             except (ValueError, TypeError):
                 pass
 
