@@ -230,8 +230,16 @@ class RaceEngineerGroup(app_commands.Group):
 
         # Create a separate embed for detailed weather information.
         track_weather = discord.Embed(title="Weather", color=discord.Color.blurple())
-        for key, value in weatherData.items():
-            track_weather.add_field(name=key, value=value, inline=True)
+        is_raining = "Yes" if weatherData.get("Rainfall") else "No"
+        track_weather.add_field(name="WindDirection", value=f"{weatherData.get('WindDirection', 'N/A')}", inline=True)
+        track_weather.add_field(name="WindSpeed", value=f"{weatherData.get('WindSpeed', 'N/A')} km/h", inline=True)
+        track_weather.add_field(name='\u200b', value='\u200b', inline=True)
+        track_weather.add_field(name="TrackTemp", value=f"{weatherData.get('TrackTemp', 'N/A')}°C", inline=True)
+        track_weather.add_field(name="AirTemp", value=f"{weatherData.get('AirTemp', 'N/A')}°C", inline=True)
+        track_weather.add_field(name='\u200b', value='\u200b', inline=True)
+        track_weather.add_field(name="Rainfall", value=is_raining, inline=True)
+        track_weather.add_field(name="Humidity", value=f"{weatherData.get('Humidity', 'N/A')}%", inline=True)
+        track_weather.add_field(name="Pressure", value=f"{weatherData.get('Pressure', 'N/A')} hPa", inline=True)
 
         # --- Send Response ---
         # Send both embeds in a single response.
