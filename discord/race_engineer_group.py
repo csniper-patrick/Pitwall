@@ -231,15 +231,70 @@ class RaceEngineerGroup(app_commands.Group):
         # Create a separate embed for detailed weather information.
         track_weather = discord.Embed(title="Weather", color=discord.Color.blurple())
         is_raining = "No" if weatherData.get("Rainfall") == "0" else "Yes"
-        track_weather.add_field(name="WindDirection", value=f"{weatherData.get('WindDirection', 'N/A')}", inline=True)
-        track_weather.add_field(name="WindSpeed", value=f"{weatherData.get('WindSpeed', 'N/A')} km/h", inline=True)
+
+        # Wind Direction
+        wind_direction_val = weatherData.get('WindDirection', 'N/A')
+        wind_direction_str = 'N/A'
+        if wind_direction_val != 'N/A':
+            try:
+                wind_direction_str = f"{int(wind_direction_val):03d}°"
+            except (ValueError, TypeError):
+                pass
+
+        # Wind Speed
+        wind_speed_val = weatherData.get('WindSpeed', 'N/A')
+        wind_speed_str = 'N/A'
+        if wind_speed_val != 'N/A':
+            try:
+                wind_speed_str = f"{(float(wind_speed_val) * 3.6):.1f} km/h"
+            except (ValueError, TypeError):
+                pass
+
+        # Track Temperature
+        track_temp_val = weatherData.get('TrackTemp', 'N/A')
+        track_temp_str = 'N/A'
+        if track_temp_val != 'N/A':
+            try:
+                track_temp_str = f"{float(track_temp_val):.1f}°C"
+            except (ValueError, TypeError):
+                pass
+
+        # Air Temperature
+        air_temp_val = weatherData.get('AirTemp', 'N/A')
+        air_temp_str = 'N/A'
+        if air_temp_val != 'N/A':
+            try:
+                air_temp_str = f"{float(air_temp_val):.1f}°C"
+            except (ValueError, TypeError):
+                pass
+
+        # Humidity
+        humidity_val = weatherData.get('Humidity', 'N/A')
+        humidity_str = 'N/A'
+        if humidity_val != 'N/A':
+            try:
+                humidity_str = f"{int(humidity_val)}%"
+            except (ValueError, TypeError):
+                pass
+
+        # Pressure
+        pressure_val = weatherData.get('Pressure', 'N/A')
+        pressure_str = 'N/A'
+        if pressure_val != 'N/A':
+            try:
+                pressure_str = f"{int(pressure_val)} hPa"
+            except (ValueError, TypeError):
+                pass
+
+        track_weather.add_field(name="WindDirection", value=wind_direction_str, inline=True)
+        track_weather.add_field(name="WindSpeed", value=wind_speed_str, inline=True)
         track_weather.add_field(name='\u200b', value='\u200b', inline=True)
-        track_weather.add_field(name="TrackTemp", value=f"{weatherData.get('TrackTemp', 'N/A')}°C", inline=True)
-        track_weather.add_field(name="AirTemp", value=f"{weatherData.get('AirTemp', 'N/A')}°C", inline=True)
+        track_weather.add_field(name="TrackTemp", value=track_temp_str, inline=True)
+        track_weather.add_field(name="AirTemp", value=air_temp_str, inline=True)
         track_weather.add_field(name='\u200b', value='\u200b', inline=True)
         track_weather.add_field(name="Rainfall", value=is_raining, inline=True)
-        track_weather.add_field(name="Humidity", value=f"{weatherData.get('Humidity', 'N/A')}%", inline=True)
-        track_weather.add_field(name="Pressure", value=f"{weatherData.get('Pressure', 'N/A')} hPa", inline=True)
+        track_weather.add_field(name="Humidity", value=humidity_str, inline=True)
+        track_weather.add_field(name="Pressure", value=pressure_str, inline=True)
 
         # --- Send Response ---
         # Send both embeds in a single response.
