@@ -230,7 +230,7 @@ class RaceEngineerGroup(app_commands.Group):
 
         # Create a separate embed for detailed weather information.
         track_weather = discord.Embed(title="Weather", color=discord.Color.blurple())
-        is_raining = "Yes" if weatherData.get("Rainfall") else "No"
+        is_raining = "No" if weatherData.get("Rainfall") == "0" else "Yes"
         track_weather.add_field(name="WindDirection", value=f"{weatherData.get('WindDirection', 'N/A')}", inline=True)
         track_weather.add_field(name="WindSpeed", value=f"{weatherData.get('WindSpeed', 'N/A')} km/h", inline=True)
         track_weather.add_field(name='\u200b', value='\u200b', inline=True)
