@@ -12,6 +12,7 @@ import io
 import json
 import logging
 import asyncio
+from collections import defaultdict
 
 import discord
 import matplotlib.pyplot as plt
@@ -26,6 +27,23 @@ from labellines import labelLines
 
 from utils import *
 
+# --- Constants ---
+COMPOUND_ORDER = ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
+GAP_CONFIG = {
+    "front": {
+        "title": "Gap in Front",
+        "race": lambda t: t.get("IntervalToPositionAhead", {}).get("Value", ""),
+        "quali": lambda t, part: t["Stats"][part - 1].get("TimeDifftoPositionAhead", ""),
+        "practice": lambda t: t.get("TimeDiffToPositionAhead", ""),
+    },
+    "lead": {
+        "title": "Gap to Leader",
+        "race": lambda t: t.get("GapToLeader", ""),
+        "quali": lambda t, part: t["Stats"][part - 1].get("TimeDiffToFastest", ""),
+        "practice": lambda t: t.get("TimeDiffToFastest", ""),
+    },
+}
+
 # Get a logger instance for this module
 log = logging.getLogger(__name__)
 
@@ -39,55 +57,35 @@ fastf1.plotting.setup_mpl(color_scheme="fastf1")
 async def get_active_driver():
     """
     Fetches a list of racing numbers for drivers considered "active" in the current session.
-
     The definition of "active" depends on the session type:
     - Race/Sprint: Drivers who have not retired.
     - Qualifying/Sprint Shootout: Drivers who have not been knocked out.
     - Practice: All drivers are considered active.
-
     Returns:
         list[str]: A list of racing numbers for active drivers.
     """
     # Create a new Redis client for this request. This is the recommended practice
     # for redis-py's async client to avoid connection sharing issues.
-    redis_client = redis.Redis(
-        host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
-    )
+    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
     sessionInfo = await redis_client.json().get("SessionInfo")
     timingDataF1 = await redis_client.json().get("TimingDataF1")
-    if sessionInfo["Type"] in ["Race", "Sprint"]:
-        # Filter out drivers who have retired
-        active_line = dict(
-            filter(
-                lambda item: not item[1]["Retired"],
-                timingDataF1["Lines"].items(),
-            )
-        )
-        return [RacingNumber for RacingNumber, _ in active_line.items()]
-    elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
-        # Filter out drivers who have been knocked out
-        active_line = dict(
-            filter(
-                lambda item: not item[1]["KnockedOut"],
-                timingDataF1["Lines"].items(),
-            )
-        )
-        return [RacingNumber for RacingNumber, _ in active_line.items()]
+
+    drivers = timingDataF1["Lines"]
+    session_type = sessionInfo["Type"]
+
+    if session_type in ["Race", "Sprint"]:
+        filter_key = "Retired"
+    elif session_type in ["Qualifying", "Sprint Shootout"]:
+        filter_key = "KnockedOut"
     else:
         # In other sessions (e.g., Practice), all drivers are considered active
-        return [RacingNumber for RacingNumber, _ in timingDataF1["Lines"].items()]
+        return list(drivers.keys())
 
-def plot_position_change(sessionInfo, driverList, lapSeries):
-    # --- Plotting Setup ---
-    # Initialize the matplotlib figure and axes for the plot.
-    fig, ax = plt.subplots(figsize=(12.0, 6.0))
-    fig.suptitle(f"{sessionInfo['Meeting']['Name']} {sessionInfo['Name']} - Position Change")
+    return [num for num, data in drivers.items() if not data[filter_key]]
 
-    # --- Driver Styling ---
-    # Create a unique visual style (color and line style) for each driver.
-    # The color is based on the team's official color. To help differentiate
-    # teammates, the line style alternates between solid and dashed.
-    driver_style = {
+def _get_driver_style(driverList):
+    """Creates a unique visual style for each driver."""
+    return {
         key: {
             "color": f"#{info['TeamColour']}",
             "linestyle": ["solid", "dashed"][idx % 2],
@@ -96,33 +94,40 @@ def plot_position_change(sessionInfo, driverList, lapSeries):
             sorted(driverList.items(), key=lambda item: item[1]["TeamColour"])
         )
     }
+
+def _plot_driver_position(ax, driver_info, lap_series, style):
+    """Plots the position data for a single driver."""
+    drv, info = driver_info
+    lap_no = list(range(len(lap_series[drv]["LapPosition"]) + 1))
+    lap_pos = [int(i) for i in lap_series[drv]["LapPosition"]]
+    lap_pos.append(int(info['Line']))
+    ax.plot(lap_no, lap_pos, label=info["Tla"], **style)
+    return max(lap_no) if lap_no else 0
+
+def plot_position_change(sessionInfo, driverList, lapSeries):
+    # --- Plotting Setup ---
+    fig, ax = plt.subplots(figsize=(12.0, 6.0))
+    fig.suptitle(f"{sessionInfo['Meeting']['Name']} {sessionInfo['Name']} - Position Change")
+
+    driver_style = _get_driver_style(driverList)
+
     # --- Plotting Loop ---
-    # Iterate through each driver to plot their position over the course of the session.
-    xvals = []  # Stores the last lap number for each driver to place labels correctly.
-    for drv, info in sorted(
-        driverList.items(), key=lambda item: item[1]["TeamName"]
-    ):
-        style = driver_style[drv]
-        # Extract the position for each lap from the LapSeries data.
-        lap_no = list(range(len(lapSeries[drv]["LapPosition"]) + 1))
-        lap_pos = [int(i) for i in lapSeries[drv]["LapPosition"]]
-        lap_pos.append(int(info['Line']))
-        xvals.append(max(lap_no) if lap_no else 0)
-        # Plot the driver's position data using the pre-defined style.
-        ax.plot(lap_no, lap_pos, label=info["Tla"], **style)
+    xvals = []
+    for driver_info in sorted(driverList.items(), key=lambda item: item[1]["TeamName"]):
+        style = driver_style[driver_info[0]]
+        last_lap = _plot_driver_position(ax, driver_info, lapSeries, style)
+        xvals.append(last_lap)
 
     # --- Axis Configuration ---
-    ax.set_ylim([len(driver_style.items())+1, 0]) # Invert y-axis so P1 is at the top.
-    ax.set_yticks(list({1, 2, 3, 10}.union({1, len(driverList)}))) # Set ticks for major positions.
+    ax.set_ylim([len(driver_style.items())+1, 0])
+    ax.set_yticks(list({1, 2, 3, 10}.union({1, len(driverList)})))
     ax.set_xlabel("LAP")
     ax.set_ylabel("POS")
-    # Set x-axis to use integer ticks only
     ax.xaxis.set_major_locator(tick.MaxNLocator(integer=True))
     ax.grid(axis="x", linestyle="--")
 
     # --- Final Touches ---
-    fig.tight_layout()  # Adjust layout to prevent labels from being cut off.
-    # Use labellines to place driver TLA (three-letter abbreviation) next to their line.
+    fig.tight_layout()
     labelLines(ax.get_lines(), align=False, xvals=xvals)
 
     return fig
@@ -157,55 +162,39 @@ class RaceEngineerGroup(app_commands.Group):
         The command groups drivers by their current tyre compound and displays them
         in separate embeds, sorted by tyre age for easy comparison.
         """
+        await interaction.response.defer(ephemeral=True, thinking=True)
         # --- Data Fetching ---
-        redis_client = redis.Redis(
-            host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
-        )
+        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
         TyreStintSeries = await redis_client.json().get("TyreStintSeries")
         driverList = await redis_client.json().get("DriverList")
         active_driver = await get_active_driver()
 
         # --- Data Processing ---
-        # Create a dictionary mapping active drivers to their most recent tyre stint data.
         driver_current_stint = {
             driverList[RacingNumber]["BroadcastName"]: stint[-1]
             for RacingNumber, stint in TyreStintSeries["Stints"].items()
             if len(stint) > 0 and RacingNumber in active_driver
         }
-        response = []
 
         # --- Embed Creation ---
-        # Group drivers by their current tyre compound into separate embeds.
-        compounds = set(
-            stint["Compound"] for _, stint in driver_current_stint.items()
-        )
-        for compound in compounds:
+        # Group drivers by compound
+        compound_groups = defaultdict(list)
+        for driver, stint in driver_current_stint.items():
+            compound_groups[stint["Compound"]].append((driver, stint))
+
+        # Sort drivers within each group by tyre age and create embeds
+        embeds = []
+        for compound in sorted(compound_groups.keys(), key=lambda c: COMPOUND_ORDER.index(c) if c in COMPOUND_ORDER else 99):
+            stints = sorted(compound_groups[compound], key=lambda x: x[1]["TotalLaps"])
             embed = discord.Embed(
                 title=compound,
-                color=(
-                    msgStyle["compoundColor"].get(compound)
-                ),
+                color=(msgStyle["compoundColor"].get(compound)),
             )
+            for driver, stint in stints:
+                embed.add_field(name=driver, value=stint["TotalLaps"], inline=True)
+            embeds.append(embed)
 
-            # Sort drivers within each compound group by the age of their tyres (TotalLaps).
-            for driver, stint in sorted(
-                driver_current_stint.items(), key=lambda item: item[1]["TotalLaps"]
-            ):
-                if stint["Compound"] == compound:
-                    embed.add_field(name=driver, value=stint["TotalLaps"], inline=True)
-            response.append(embed)
-
-        # --- Response Formatting ---
-        # Sort the embeds in a logical order (Wet -> Inter -> Soft -> Medium -> Hard) for consistent display.
-        response = sorted(
-            response,
-            key=lambda embed: (
-                ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"].index(embed.title)
-                if embed.title in ["WET", "INTERMEDIATE", "SOFT", "MEDIUM", "HARD"]
-                else 99
-            ),
-        )
-        await interaction.response.send_message(embeds=response, ephemeral=True)
+        await interaction.followup.send(embeds=embeds, ephemeral=True)
 
     @app_commands.command(
         name="track_condition",
@@ -251,95 +240,7 @@ class RaceEngineerGroup(app_commands.Group):
         (Race, Qualifying, or Practice). For qualifying, it also highlights
         drivers at risk of elimination.
         """
-        # --- Data Fetching ---
-        redis_client = redis.Redis(
-            host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
-        )
-        timingDataF1 = await redis_client.json().get("TimingDataF1")
-        driverList = await redis_client.json().get("DriverList")
-        sessionInfo = await redis_client.json().get("SessionInfo")
-        active_driver = await get_active_driver()
-
-        # --- Data Processing ---
-        # Filter timing data to include only active drivers.
-        driver_timing = {
-            key: value
-            for key, value in timingDataF1["Lines"].items()
-            if key in active_driver
-        }
-        # Sort drivers by their position on the timing screen ('Line').
-        driver_timing = list(
-            sorted(driver_timing.items(), key=lambda item: int( driverList[item[0]].get("Line", 99) ))
-        )
-
-        # The data displayed depends on the type of session.
-        if sessionInfo["Type"] in ["Race", "Sprint"]:
-            # For races, show last lap time and interval to the car ahead.
-            response = discord.Embed(
-                title="Gap in Front", color=discord.Color.blurple()
-            )
-            for RacingNumber, timing in driver_timing:
-                response.add_field(
-                    name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['LastLapTime']['Value']} ({timing['IntervalToPositionAhead']['Value']})`",
-                    inline=False,
-                )
-            await interaction.response.send_message(embeds=[response], ephemeral=True)
-
-        elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
-            # For qualifying, show best lap time and gap, separating drivers at risk of elimination.
-            response = discord.Embed(
-                title="Gap in Front", color=discord.Color.blurple()
-            )
-
-            # Determine the cutoff position for the current qualifying session part (Q1/Q2/Q3).
-            # `NoEntries` holds the number of drivers advancing from each part.
-            # Append a list of large numbers to prevent index errors for later session parts.
-            limit = (timingDataF1["NoEntries"] + [100] * 10)[
-                timingDataF1["SessionPart"]
-            ]
-
-            # Split drivers into those who are advancing and those at risk.
-            driver_adv = driver_timing[:limit]
-            driver_at_risk = driver_timing[limit:]
-
-            # Create embed fields for drivers who are currently safe.
-            for RacingNumber, timing in driver_adv:
-                response.add_field(
-                    name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1].get('TimeDifftoPositionAhead', '')})`",
-                    inline=False,
-                )
-
-            # If there are drivers at risk, create a separate embed for them.
-            if driver_at_risk:
-                at_risk = discord.Embed(title="At Risk", color=discord.Color.red())
-                for RacingNumber, timing in driver_timing[limit:]:
-                    at_risk.add_field(
-                        name=driverList[RacingNumber]["BroadcastName"],
-                        value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1].get('TimeDifftoPositionAhead', '')})`",
-                        inline=False,
-                    )
-                await interaction.response.send_message(
-                    embeds=[response, at_risk], ephemeral=True
-                )
-            else:
-                await interaction.response.send_message(
-                    embeds=[response], ephemeral=True
-                )
-
-        else:
-            # For other sessions (e.g., Practice), show best lap time and gap to car ahead.
-            response = discord.Embed(
-                title="Gap in Front", color=discord.Color.blurple()
-            )
-            for RacingNumber, timing in driver_timing:
-                response.add_field(
-                    name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing.get('TimeDiffToPositionAhead', '')})`",
-                    inline=False,
-                )
-            await interaction.response.send_message(embeds=[response], ephemeral=True)
+        await self._timing_gap_embed(interaction, "front")
 
     @app_commands.command(
         name="gap_to_lead",
@@ -353,95 +254,7 @@ class RaceEngineerGroup(app_commands.Group):
         (Race, Qualifying, or Practice). For qualifying, it also highlights
         drivers at risk of elimination.
         """
-        # --- Data Fetching ---
-        redis_client = redis.Redis(
-            host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
-        )
-        timingDataF1 = await redis_client.json().get("TimingDataF1")
-        driverList = await redis_client.json().get("DriverList")
-        sessionInfo = await redis_client.json().get("SessionInfo")
-        active_driver = await get_active_driver()
-
-        # --- Data Processing ---
-        # Filter timing data to include only active drivers.
-        driver_timing = {
-            key: value
-            for key, value in timingDataF1["Lines"].items()
-            if key in active_driver
-        }
-        # Sort drivers by their position on the timing screen ('Line').
-        driver_timing = list(
-            sorted(driver_timing.items(), key=lambda item: int( driverList[item[0]].get("Line", 99) ))
-        )
-
-        # The data displayed depends on the type of session.
-        if sessionInfo["Type"] in ["Race", "Sprint"]:
-            # For races, show last lap time and gap to the leader.
-            response = discord.Embed(
-                title="Gap to Leader", color=discord.Color.blurple()
-            )
-            for RacingNumber, timing in driver_timing:
-                response.add_field(
-                    name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['LastLapTime']['Value']} ({timing['GapToLeader']})`",
-                    inline=False,
-                )
-            await interaction.response.send_message(embeds=[response], ephemeral=True)
-
-        elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
-            # For qualifying, show best lap time and gap, separating drivers at risk of elimination.
-            response = discord.Embed(
-                title="Gap to Leader", color=discord.Color.blurple()
-            )
-
-            # Determine the cutoff position for the current qualifying session part (Q1/Q2/Q3).
-            # `NoEntries` holds the number of drivers advancing from each part.
-            # Append a list of large numbers to prevent index errors for later session parts.
-            limit = (timingDataF1["NoEntries"] + [100] * 10)[
-                timingDataF1["SessionPart"]
-            ]
-
-            # Split drivers into those who are advancing and those at risk.
-            driver_adv = driver_timing[:limit]
-            driver_at_risk = driver_timing[limit:]
-
-            # Create embed fields for drivers who are currently safe.
-            for RacingNumber, timing in driver_adv:
-                response.add_field(
-                    name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1].get('TimeDiffToFastest', '')})`",
-                    inline=False,
-                )
-
-            # If there are drivers at risk, create a separate embed for them.
-            if driver_at_risk:
-                at_risk = discord.Embed(title="At Risk", color=discord.Color.red())
-                for RacingNumber, timing in driver_timing[limit:]:
-                    at_risk.add_field(
-                        name=driverList[RacingNumber]["BroadcastName"],
-                        value=f"`{timing['BestLapTime']['Value']} ({timing['Stats'][timingDataF1['SessionPart'] - 1].get('TimeDiffToFastest', '')})`",
-                        inline=False,
-                    )
-                await interaction.response.send_message(
-                    embeds=[response, at_risk], ephemeral=True
-                )
-            else:
-                await interaction.response.send_message(
-                    embeds=[response], ephemeral=True
-                )
-
-        else:
-            # For other sessions (e.g., Practice), show best lap time and gap to the fastest car.
-            response = discord.Embed(
-                title="Gap to Leader", color=discord.Color.blurple()
-            )
-            for RacingNumber, timing in driver_timing:
-                response.add_field(
-                    name=driverList[RacingNumber]["BroadcastName"],
-                    value=f"`{timing['BestLapTime']['Value']} ({timing.get('TimeDiffToFastest', '')})`",
-                    inline=False,
-                )
-            await interaction.response.send_message(embeds=[response], ephemeral=True)
+        await self._timing_gap_embed(interaction, "lead")
 
     @app_commands.command(
         name="position",
@@ -478,40 +291,43 @@ class RaceEngineerGroup(app_commands.Group):
         # --- Caching and Plot Generation ---
         # To prevent overloading the bot with plot generation requests, this command
         # uses a caching mechanism with a double-checked lock pattern.
-        # 1. Check for a cached plot in Redis.
-        # 2. If not found, acquire a lock and check again. This prevents a race
-        #    condition where multiple instances try to generate the plot simultaneously.
-        # 3. If still not found, acquire a semaphore to limit concurrent plotting
-        #    tasks, generate the plot in a separate thread, and cache it in Redis
-        #    for 60 seconds.
-        try:
-            bio = None
-            if cached_bytes := await redis_client.get(f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png"):
-                bio = io.BytesIO(cached_bytes)
-            elif await self.position_change_lock.acquire() and (cached_bytes := await redis_client.get(f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png")) :
-                bio = io.BytesIO(cached_bytes)
-            elif await self.task_semaphore.acquire() and (fig := await asyncio.to_thread(plot_position_change, sessionInfo, driverList, lapSeries)):
-                bio=io.BytesIO()
-                fig.savefig(bio, dpi=700, format="png")
-                bio.seek(0)
-                await redis_client.set(f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png", bio.getvalue(), ex=( 60 if sessionInfo['ArchiveStatus']["Status"] != "Complete" else 86400 ))
-        finally:
-            if self.task_semaphore.locked():
-                self.task_semaphore.release()
-            if self.position_change_lock.locked():
-                self.position_change_lock.release()
-            # --- Send Response ---
-            # Create a discord.File object from the stream and send it.
-            if bio:
-                attachment = discord.File(bio, filename=f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png")
-                await interaction.followup.send(file=attachment)
-            else:
-                # Handle case where plot generation fails and bio is not created
-                await interaction.followup.send(
-                    content="Sorry, the position change plot could not be generated at this time.",
-                    ephemeral=True,
-                )
-            return
+        cache_key = f"{sessionInfo['Meeting']['Name']}_{sessionInfo['Name']}_Position Change.png"
+        cached_bytes = await redis_client.get(cache_key)
+        bio = None
+
+        if cached_bytes:
+            bio = io.BytesIO(cached_bytes)
+        else:
+            async with self.position_change_lock:
+                # Re-check cache after acquiring lock to prevent race conditions
+                cached_bytes = await redis_client.get(cache_key)
+                if cached_bytes:
+                    bio = io.BytesIO(cached_bytes)
+                else:
+                    async with self.task_semaphore:
+                        # Generate the plot in a separate thread to avoid blocking
+                        fig = await asyncio.to_thread(
+                            plot_position_change, sessionInfo, driverList, lapSeries
+                        )
+                        if fig:
+                            bio = io.BytesIO()
+                            fig.savefig(bio, dpi=700, format="png")
+                            bio.seek(0)
+                            # Cache plot for 1 min during live race, 24h after
+                            ttl = 60 if sessionInfo['ArchiveStatus']["Status"] != "Complete" else 86400
+                            await redis_client.set(cache_key, bio.getvalue(), ex=ttl)
+
+        # --- Send Response ---
+        if bio:
+            attachment = discord.File(bio, filename=cache_key)
+            await interaction.followup.send(file=attachment)
+        else:
+            # Handle case where plot generation fails
+            await interaction.followup.send(
+                content="Sorry, the position change plot could not be generated at this time.",
+                ephemeral=True,
+            )
+        return
 
     @app_commands.command(
         name="help", description="Shows a list of all available race engineer commands."
@@ -538,3 +354,81 @@ class RaceEngineerGroup(app_commands.Group):
             )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    async def _get_timing_data(self):
+        """Fetches and prepares timing data from Redis."""
+        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True)
+        # Using asyncio.gather to fetch data concurrently
+        results = await asyncio.gather(
+            redis_client.json().get("TimingDataF1"),
+            redis_client.json().get("DriverList"),
+            redis_client.json().get("SessionInfo"),
+            get_active_driver(),
+        )
+        timingDataF1, driverList, sessionInfo, active_driver = results
+
+        driver_timing = {
+            key: value
+            for key, value in timingDataF1["Lines"].items()
+            if key in active_driver
+        }
+        driver_timing = list(
+            sorted(driver_timing.items(), key=lambda item: int(driverList[item[0]].get("Line", 99)))
+        )
+        return timingDataF1, driverList, sessionInfo, driver_timing
+
+    async def _timing_gap_embed(self, interaction: discord.Interaction, gap_type: str):
+        """Helper function to create and send timing gap embeds."""
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        timingDataF1, driverList, sessionInfo, driver_timing = await self._get_timing_.data()
+        config = GAP_CONFIG[gap_type]
+        title = config["title"]
+
+        embeds = []
+        main_embed = discord.Embed(title=title, color=discord.Color.blurple())
+        embeds.append(main_embed)
+
+        if sessionInfo["Type"] in ["Race", "Sprint"]:
+            for RacingNumber, timing in driver_timing:
+                gap = config["race"](timing)
+                main_embed.add_field(
+                    name=driverList[RacingNumber]["BroadcastName"],
+                    value=f"`{timing['LastLapTime']['Value']} ({gap})`",
+                    inline=False,
+                )
+        elif sessionInfo["Type"] in ["Qualifying", "Sprint Shootout"]:
+            session_part = timingDataF1["SessionPart"]
+            # Append a list of large numbers to prevent index errors for later session parts.
+            limit = (timingDataF1["NoEntries"] + [100] * 10)[session_part]
+
+            driver_adv = driver_timing[:limit]
+            driver_at_risk = driver_timing[limit:]
+
+            for RacingNumber, timing in driver_adv:
+                gap = config["quali"](timing, session_part)
+                main_embed.add_field(
+                    name=driverList[RacingNumber]["BroadcastName"],
+                    value=f"`{timing['BestLapTime']['Value']} ({gap})`",
+                    inline=False,
+                )
+
+            if driver_at_risk:
+                at_risk_embed = discord.Embed(title="At Risk", color=discord.Color.red())
+                for RacingNumber, timing in driver_at_risk:
+                    gap = config["quali"](timing, session_part)
+                    at_risk_embed.add_field(
+                        name=driverList[RacingNumber]["BroadcastName"],
+                        value=f"`{timing['BestLapTime']['Value']} ({gap})`",
+                        inline=False,
+                    )
+                embeds.append(at_risk_embed)
+        else:  # Practice
+            for RacingNumber, timing in driver_timing:
+                gap = config["practice"](timing)
+                main_embed.add_field(
+                    name=driverList[RacingNumber]["BroadcastName"],
+                    value=f"`{timing['BestLapTime']['Value']} ({gap})`",
+                    inline=False,
+                )
+
+        await interaction.followup.send(embeds=embeds, ephemeral=True)
