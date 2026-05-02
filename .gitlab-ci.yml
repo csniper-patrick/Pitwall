@@ -65,6 +65,6 @@ include:
     rules:
       - if: '$CI_PIPELINE_SOURCE == "schedule"'
   # Automated code review using Gemini
-  - project: 'CSniper/ci-mgmt'
+  - project: '$CI_PROJECT_NAMESPACE/ci-mgmt'
     file: 'code-review.yml'
     ref: 'main'
