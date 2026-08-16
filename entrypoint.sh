@@ -13,7 +13,7 @@ fi
 
 CMD_PREFIX=""
 if [[ -n "$SOCKS_PROXY" ]]; then
-	TOR_ADDR="0.0.0.0"
+	TOR_ADDR="127.0.0.1"
 	TOR_PORT="9050"
 
 	if [[ "$SOCKS_PROXY" =~ ^[0-9]+$ ]]; then
@@ -24,6 +24,13 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 	elif [[ "$SOCKS_PROXY" != "true" && "$SOCKS_PROXY" != "1" && "$SOCKS_PROXY" != "yes" ]]; then
 		TOR_ADDR="$SOCKS_PROXY"
 		TOR_PORT="${SOCKS_PORT:-9050}"
+	fi
+
+	if [[ ! "$TOR_ADDR" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ && ! "$TOR_ADDR" =~ ^[0-9a-fA-F:]+$ ]]; then
+		RESOLVED_ADDR=$(getent hosts "$TOR_ADDR" | awk '{print $1}' | head -n 1)
+		if [[ -n "$RESOLVED_ADDR" ]]; then
+			TOR_ADDR="$RESOLVED_ADDR"
+		fi
 	fi
 
 	export TORSOCKS_TOR_ADDRESS="$TOR_ADDR"
@@ -41,4 +48,4 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 fi
 
 sleep ${STARTUP_DELAY:-0}
-${CMD_PREFIX} python ${1:?Missing program} "${@:2}"
+exec ${CMD_PREFIX} python ${1:?Missing program} "${@:2}"
