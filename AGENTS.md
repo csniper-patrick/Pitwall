@@ -1,6 +1,6 @@
-# Pitwall - Antigravity Agent Guidelines
+# Pitwall - Agent Guidelines
 
-This file provides system context, architectural guidelines, development workflows, and coding conventions for autonomous AI agents (like Antigravity) working in the Pitwall codebase.
+This file provides system context, architectural guidelines, development workflows, and coding conventions for autonomous AI agents working in the Pitwall codebase.
 
 ---
 
@@ -52,13 +52,13 @@ The project is structured as a decoupled microservice architecture:
 ## 2. Directory Layout & Key Files
 
 *   `publisher/`: Services subscribing to SignalR streams.
-    *   [publisher/utils.py](file:///Users/csniper/Projects/pitwall/publisher/utils.py): Shared functions for SignalR connection negotiation, timing formats (`timeStr2msec`, `msec2timeStr`), and configuration loading.
+    *   `publisher/utils.py`: Shared functions for SignalR connection negotiation, timing formats (`timeStr2msec`, `msec2timeStr`), and configuration loading.
     *   `publisher/*.py`: Specific publisher tasks (e.g., `race-control.py`, `timing.py`, `pitlane.py`, `tyre.py`, `telemetry.py`, `radio.py`).
 *   `discord/`: Services listening to Redis pub/sub or handling commands.
-    *   [discord/utils.py](file:///Users/csniper/Projects/pitwall/discord/utils.py): Shared functions for styling (parsing `style.json` / default styling dictionary) and configuration.
-    *   [discord/command.py](file:///Users/csniper/Projects/pitwall/discord/command.py): Main slash command bot executable. Uses command groups defined in `race_engineer_group.py` and `strategist_group.py`.
-    *   [discord/race_engineer_group.py](file:///Users/csniper/Projects/pitwall/discord/race_engineer_group.py): Slash commands querying live data from Redis (e.g. tyres, gaps).
-    *   [discord/strategist_group.py](file:///Users/csniper/Projects/pitwall/discord/strategist_group.py): Slash commands querying archived data using the `FastF1` library.
+    *   `discord/utils.py`: Shared functions for styling (parsing `style.json` / default styling dictionary) and configuration.
+    *   `discord/command.py`: Main slash command bot executable. Uses command groups defined in `race_engineer_group.py` and `strategist_group.py`.
+    *   `discord/race_engineer_group.py`: Slash commands querying live data from Redis (e.g. tyres, gaps).
+    *   `discord/strategist_group.py`: Slash commands querying archived data using the `FastF1` library.
     *   `discord/*.py`: Consumers formatting Redis streams into Discord webhook embeds.
 *   `mock-api/`: Replays static live timing JSON files for offline development.
 *   `compose.yaml` / `compose.dev.yaml`: Production and development multi-container orchestration.
@@ -145,10 +145,11 @@ docker compose -f compose.yaml down
 *   **No cd commands:** Always propose `run_command` with correct `Cwd` fields. Never use `cd` in shell commands.
 *   **Async Integrity:** Keep the publishers and listeners async. Never block the event loop with synchronous network/disk calls; use executor blocks or async libraries where needed.
 *   **Respect Heavy Tasks:** FastF1 commands (`/strategist`) can consume significant CPU/memory. Respect the `task_semaphore` / `HEAVY_TASK_LIMIT` limits inside slash commands to prevent overloading containers.
+*   **Do Not Commit Unless Explicitly Told:** Do not create git commits or run `git commit` unless explicitly instructed to do so by the user. Leave all modified files uncommitted/unstaged for user review and approval.
 
 ---
 
-## 8. Antigravity Coding Rules
+## 8. Agent Coding Rules
 
 These rules apply to every task in this project unless explicitly overridden.
 Bias: caution over speed on non-trivial work. Use judgment on trivial tasks.
@@ -171,11 +172,11 @@ Bias: caution over speed on non-trivial work. Use judgment on trivial tasks.
     *   Don't follow steps blindly. Define success and iterate.
     *   Strong success criteria let you loop independently.
 *   **Rule 5 — Leverage the model's strengths:**
-    *   Use me for: large-scale context analysis, multi-modal data extraction, architectural drafting, and cross-file summarization.
-    *   Do NOT use me for: deterministic transforms, executing pipelines, or tasks where simple scripts suffice.
+    *   Use LLM for: large-scale context analysis, multi-modal data extraction, architectural drafting, and cross-file summarization.
+    *   Do NOT use LLM for: deterministic transforms, executing pipelines, or tasks where simple scripts suffice.
     *   If a native tool or code can answer, let it.
 *   **Rule 6 — Context is vast, but focus is critical:**
-    *   While my context window is massive, do not unnecessarily bloat it with irrelevant logs or unrelated data dumps.
+    *   While context windows are large, do not unnecessarily bloat context with irrelevant logs or unrelated data dumps.
     *   If the project shifts to a completely new domain, summarize the current state and start fresh to maintain absolute precision.
     *   Surface any context drift. Do not silently lose track of the core objective.
 *   **Rule 7 — Surface conflicts, don't average them:**
@@ -199,3 +200,7 @@ Bias: caution over speed on non-trivial work. Use judgment on trivial tasks.
     *   "Completed" is wrong if anything was skipped silently.
     *   "Pipelines pass" is wrong if any checks were bypassed.
     *   Default to surfacing system errors and uncertainty, not hiding them.
+*   **Rule 13 — Do Not Commit Unless Explicitly Told:**
+    *   Do not create git commits or run `git commit` unless explicitly instructed to do so by the user.
+    *   Leave all modified files uncommitted/unstaged for user review and approval.
+
