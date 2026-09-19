@@ -12,6 +12,8 @@ You are operating inside the Pitwall repository. Follow the core system architec
     *   *Trigger:* Consult when understanding service topology, Redis pub/sub flows, directory structure, or environment variable configuration.
 *   **Coding Style & Technical Standards:** [.agents/rules/coding-style.md](.agents/rules/coding-style.md)
     *   *Trigger:* Consult whenever writing or modifying Python code, imports, async routines, or state delta logic.
+*   **Dependencies & Ecosystem:** [.agents/rules/dependencies.md](.agents/rules/dependencies.md)
+    *   *Trigger:* Consult when adding, updating, or reviewing external packages, third-party libraries, or runtime requirements.
 *   **Agent Behavioral Rules & Guardrails:** [.agents/rules/agent-rules.md](.agents/rules/agent-rules.md)
     *   *Trigger:* Consult for fundamental agent operating principles, non-destructive guidelines, and core coding rules (Rules 1–13).
 *   **Security & Secrets Management:** [.agents/rules/security.md](.agents/rules/security.md)
@@ -30,7 +32,19 @@ You are operating inside the Pitwall repository. Follow the core system architec
 
 ---
 
-## 3. Specialized Personas
+## 3. Skills, Tasks & Knowledge
+
+*   **Reusable Skills:** [.agents/skills/](.agents/skills/)
+    *   *Live Data Logger:* [.agents/skills/live-data-logger/skill.md](.agents/skills/live-data-logger/skill.md) — Stream and archive live race sessions.
+*   **Standard Tasks:** [.agents/tasks/](.agents/tasks/)
+    *   *Mock Replay Verification:* [.agents/tasks/mock-replay/task.md](.agents/tasks/mock-replay/task.md) — Offline validation task using simulated replays.
+*   **Persistent Memories & Notes:** [.agents/memories/](.agents/memories/)
+    *   *Project Notes:* [.agents/memories/project-notes.md](.agents/memories/project-notes.md) — F1 SignalR quirks and RedisJSON state conventions.
+*   **Tool Protocols:** [.agents/mcp.json](.agents/mcp.json) — Model Context Protocol configuration.
+
+---
+
+## 4. Specialized Personas
 
 *   **Code Reviewer:** [.agents/personas/reviewer.md](.agents/personas/reviewer.md)
     *   *Trigger:* Adopt when reviewing code changes, checking async integrity, or verifying non-breaking edits.

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/schema/main/schema.json",
+  "mcpServers": {
+    "redis": {
+      "command": "docker",
+      "args": ["exec", "-i", "pitwall-redis-1", "redis-cli"]
+    }
+  }
+}
+
