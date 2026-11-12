@@ -3,10 +3,46 @@
 Utility functions for the publisher services.
 """
 
+import base64
+import contextlib
+import hashlib
+import json
+import logging
 import os
 import re
+import secrets
+import time
 import urllib.parse
-from typing import Any, Dict, Tuple
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+ACCOUNT_ORIGIN = "https://account.formula1.com"
+CONFIG_SCRIPT_URL = f"{ACCOUNT_ORIGIN}/scripts/main.min.js"
+IDP_ORIGIN = "https://id.formula1.com"
+AUTHORIZE_URL = f"{IDP_ORIGIN}/as/authorize"
+TOKEN_URL = f"{IDP_ORIGIN}/as/token"
+AUTH_TIMEOUT = (5, 30)
+EXPIRY_MARGIN = 300
+RECORD_SEPARATOR = "\x1e"
+
+DEFAULT_AUTH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
+PING_SDK_HEADERS = {"X-Requested-With": "ping-sdk"}
+_DAVINCI_OBJECT = re.compile(r"\bdavinci:\{([^}]*)\}")
+
+
+class F1AuthError(Exception):
+    """Raised when Formula 1 account authentication fails."""
 
 
 def updateDictDelta(obj: Dict[str, Any], delta: Dict[str, Any]) -> Dict[str, Any]:
@@ -98,8 +134,8 @@ def load_config() -> Tuple[bool, str, bool, str, str, str, float, str, int, str]
     base_http_url = f"https://{API_HOST}" if USE_SSL else f"http://{API_HOST}"
     base_ws_url = f"wss://{API_HOST}" if USE_SSL else f"ws://{API_HOST}"
 
-    livetimingUrl = urllib.parse.urljoin(base_http_url, "/signalr")
-    websocketUrl = urllib.parse.urljoin(base_ws_url, "/signalr")
+    livetimingUrl = urllib.parse.urljoin(base_http_url, "/signalrcore")
+    websocketUrl = urllib.parse.urljoin(base_ws_url, "/signalrcore")
     staticUrl = urllib.parse.urljoin(base_http_url, "/static")
 
     # --- Redis Configuration ---
@@ -122,3 +158,477 @@ def load_config() -> Tuple[bool, str, bool, str, str, str, float, str, int, str]
         REDIS_PORT,
         REDIS_CHANNEL,
     )
+
+
+def _decode_jwt_payload(token: str) -> Dict[str, Any]:
+    """Decode the payload of a JWT without verifying its signature."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            raise ValueError("Invalid JWT structure")
+        payload_b64 = parts[1]
+        padding = "=" * (-len(payload_b64) % 4)
+        decoded = base64.urlsafe_b64decode(payload_b64 + padding)
+        payload = json.loads(decoded.decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("JWT payload is not a JSON object")
+        return payload
+    except (ValueError, TypeError, UnicodeDecodeError) as exc:
+        raise F1AuthError(f"Failed to decode JWT payload: {exc}") from exc
+
+
+def _hash_username(username: str) -> str:
+    """Return a stable SHA-256 digest for the given username."""
+    return hashlib.sha256(username.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class SubscriptionToken:
+    """F1TV entitlement JWT sent as a Bearer token to F1 live timing APIs."""
+
+    value: str = field(repr=False)
+    expires_at: float
+    user_hash: str = ""
+
+    @classmethod
+    def from_jwt(cls, value: str, user_hash: str = "") -> "SubscriptionToken":
+        """Create a SubscriptionToken from a JWT string, reading its exp claim."""
+        payload = _decode_jwt_payload(value)
+        try:
+            expires_at = float(payload["exp"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise F1AuthError("Subscription token has no valid expiry.") from exc
+        return cls(value=value, expires_at=expires_at, user_hash=user_hash)
+
+    @property
+    def authorization_header(self) -> str:
+        """Return the HTTP Authorization header value."""
+        return f"Bearer {self.value}"
+
+    def is_valid(self) -> bool:
+        """Return True if the token has not expired within EXPIRY_MARGIN."""
+        return self.expires_at - EXPIRY_MARGIN > time.time()
+
+
+class TokenManager:
+    """Caches and renews the F1 subscription token in memory and on disk."""
+
+    VERSION = 1
+
+    def __init__(self, path: Optional[Path] = None):
+        self._custom_path = path
+        self._token: Optional[SubscriptionToken] = None
+
+    @property
+    def token_path(self) -> Path:
+        if self._custom_path is not None:
+            return self._custom_path
+        return Path(os.getenv("F1_TOKEN_PATH", "/tmp/f1auth_token.json"))
+
+    def get(
+        self,
+        username: str,
+        password: str,
+        force_renew: bool = False,
+    ) -> SubscriptionToken:
+        """Return a valid token for username, signing in when necessary."""
+        user_hash = _hash_username(username)
+        if not force_renew:
+            token = self.get_stored(user_hash=user_hash)
+            if token is not None and token.is_valid():
+                return token
+
+        logger.info("Signing in to Formula 1 account...")
+        self._token = login(username, password)
+        logger.info("Sign-in successful.")
+
+        try:
+            self.store(self._token)
+        except OSError as exc:
+            logger.warning(f"Failed to store the access token: {exc}")
+        return self._token
+
+    def get_stored(self, user_hash: Optional[str] = None) -> Optional[SubscriptionToken]:
+        """Return a stored token from memory or disk if it matches user_hash."""
+        token = self._token
+        if token is None:
+            try:
+                data = json.loads(self.token_path.read_text(encoding="utf-8"))
+                if data.pop("version", None) != self.VERSION:
+                    return None
+                token = SubscriptionToken(**data)
+                self._token = token
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                return None
+
+        if user_hash is not None and token.user_hash != user_hash:
+            return None
+        return token
+
+    def store(self, token: SubscriptionToken) -> None:
+        """Persist the token to disk with owner-only permissions."""
+        path = self.token_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch(mode=0o600, exist_ok=True)
+        os.chmod(path, 0o600)
+        path.write_text(
+            json.dumps({"version": self.VERSION, **asdict(token)}),
+            encoding="utf-8",
+        )
+
+    def clear(self) -> None:
+        """Remove the stored token from memory and disk."""
+        self._token = None
+        with contextlib.suppress(FileNotFoundError):
+            self.token_path.unlink()
+
+
+_token_manager = TokenManager()
+
+
+def _fetch_auth_config(session: requests.Session) -> Tuple[str, str]:
+    """Scrape the DaVinci OAuth clientId and policyId from account.formula1.com."""
+    resp = session.get(CONFIG_SCRIPT_URL, timeout=AUTH_TIMEOUT)
+    resp.raise_for_status()
+
+    obj = _DAVINCI_OBJECT.search(resp.text)
+    if not obj:
+        raise F1AuthError(f"No config object found in {CONFIG_SCRIPT_URL}")
+
+    def field(name: str) -> str:
+        match = re.search(rf'\b{name}:"([^"]+)"', obj.group(1))
+        if not match:
+            raise F1AuthError(f"Config scrape missing required field {name}")
+        return match.group(1)
+
+    return field("clientId"), field("acrValues")
+
+
+def _code_challenge(code_verifier: str) -> str:
+    """Compute a PKCE S256 code challenge (RFC 7636)."""
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _code_from_flow_response(resp: requests.Response, state: str) -> str:
+    """Validate the DaVinci response and return the authorization code."""
+    try:
+        data = resp.json()
+    except ValueError:
+        resp.raise_for_status()
+        raise F1AuthError("Unexpected response from the sign-in.") from None
+
+    if data.get("status") != "COMPLETED":
+        raise F1AuthError(
+            data.get("message") or f"Sign-in failed (status {resp.status_code})."
+        )
+    auth_response = data.get("authorizeResponse") or {}
+    if auth_response.get("state") != state:
+        raise F1AuthError("Sign-in failed: state mismatch in the response.")
+    code = auth_response.get("code")
+    if not (code and isinstance(code, str)):
+        raise F1AuthError("Sign-in failed: no authorization code returned.")
+    return code
+
+
+def login(username: str, password: str) -> SubscriptionToken:
+    """Authenticate with Formula 1 using username and password and return a SubscriptionToken."""
+    try:
+        with requests.Session() as session:
+            session.headers.update(DEFAULT_AUTH_HEADERS)
+            client_id, policy_id = _fetch_auth_config(session)
+
+            code_verifier = secrets.token_urlsafe(64)
+            state = secrets.token_urlsafe(24)
+
+            resp = session.get(
+                AUTHORIZE_URL,
+                params={
+                    "client_id": client_id,
+                    "response_type": "code",
+                    "response_mode": "pi.flow",
+                    "scope": "openid",
+                    "state": state,
+                    "nonce": secrets.token_urlsafe(24),
+                    "code_challenge": _code_challenge(code_verifier),
+                    "code_challenge_method": "S256",
+                    "acr_values": policy_id,
+                },
+                headers=PING_SDK_HEADERS,
+                timeout=AUTH_TIMEOUT,
+            )
+            resp.raise_for_status()
+            form = resp.json()
+
+            try:
+                submit_url = form["_links"]["next"]["href"]
+                interaction_id = form["interactionId"]
+                flow_id = form["id"]
+                event_name = form["eventName"]
+            except (KeyError, TypeError) as exc:
+                raise F1AuthError(
+                    "Unexpected response when starting the sign-in."
+                ) from exc
+
+            if not submit_url.startswith(f"{IDP_ORIGIN}/"):
+                raise F1AuthError(f"Unexpected sign-in url {submit_url}.")
+
+            resp = session.post(
+                submit_url,
+                json={
+                    "id": flow_id,
+                    "eventName": event_name,
+                    "interactionId": interaction_id,
+                    "parameters": {
+                        "eventType": "submit",
+                        "data": {
+                            "actionKey": "SIGNIN",
+                            "formData": {"username": username, "password": password},
+                        },
+                    },
+                },
+                headers={**PING_SDK_HEADERS, "interactionId": interaction_id},
+                timeout=AUTH_TIMEOUT,
+            )
+            code = _code_from_flow_response(resp, state)
+
+            resp = session.post(
+                TOKEN_URL,
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": client_id,
+                    "code": code,
+                    "code_verifier": code_verifier,
+                },
+                timeout=AUTH_TIMEOUT,
+            )
+            resp.raise_for_status()
+            try:
+                access_token = resp.json()["access_token"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise F1AuthError("No access token in the token response.") from exc
+    except requests.RequestException as exc:
+        raise F1AuthError(f"Sign-in failed: {exc}") from exc
+
+    claims = _decode_jwt_payload(access_token)
+    subscription_jwt = claims.get("subscriptionToken")
+    if not subscription_jwt:
+        raise F1AuthError(
+            "Access token contains no subscription token. "
+            "An active F1TV subscription is required."
+        )
+    return SubscriptionToken.from_jwt(
+        subscription_jwt, user_hash=_hash_username(username)
+    )
+
+
+def get_token(
+    force_renew: bool = False,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+) -> SubscriptionToken:
+    """Return a valid F1 subscription token using explicit or env credentials."""
+    resolved_user = username if username is not None else os.getenv("F1_USERNAME")
+    resolved_pass = password if password is not None else os.getenv("F1_PASSWORD")
+    if not resolved_user or not resolved_pass:
+        raise F1AuthError(
+            "No F1 account credentials available. Set F1_USERNAME and F1_PASSWORD."
+        )
+    return _token_manager.get(
+        resolved_user, resolved_pass, force_renew=force_renew
+    )
+
+
+def clear_token() -> None:
+    """Remove the cached F1 subscription token."""
+    _token_manager.clear()
+
+
+def _try_get_token(
+    force_renew: bool = False,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+) -> Optional[SubscriptionToken]:
+    """Obtain an F1 token, logging a warning and returning None on failure."""
+    try:
+        return get_token(
+            force_renew=force_renew, username=username, password=password
+        )
+    except F1AuthError as exc:
+        print(
+            f"Failed to authenticate with Formula 1 account, "
+            f"continuing without authentication: {exc}"
+        )
+        return None
+
+
+def negotiate_signalr(
+    livetiming_url: str,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+) -> Tuple[Optional[Dict[str, Any]], Any, Optional[str], Optional[Dict[str, str]]]:
+    """
+    Negotiate an authenticated SignalR Core connection with the live timing server.
+
+    Returns:
+        A tuple containing negotiation JSON, response headers, encoded URL query
+        parameters, and extra headers (Cookie and Authorization) for WebSocket connect.
+    """
+    token = _try_get_token(username=username, password=password)
+    negotiate_url = f"{livetiming_url}/negotiate"
+
+    try:
+        with requests.Session() as session:
+            session.headers.update(
+                {
+                    "User-Agent": "BestHTTP",
+                    "Accept-Encoding": "gzip,identity",
+                }
+            )
+            if token is not None:
+                session.headers["Authorization"] = token.authorization_header
+
+            # Pre-negotiate to obtain the AWSALBCORS load-balancer sticky cookie.
+            session.options(negotiate_url, timeout=AUTH_TIMEOUT)
+
+            res = session.post(
+                negotiate_url,
+                headers={"Content-Type": "application/json"},
+                timeout=AUTH_TIMEOUT,
+            )
+
+            if res.status_code == 401 and token is not None:
+                clear_token()
+                token = _try_get_token(
+                    force_renew=True, username=username, password=password
+                )
+                if token is not None:
+                    session.headers["Authorization"] = token.authorization_header
+                else:
+                    session.headers.pop("Authorization", None)
+                res = session.post(
+                    negotiate_url,
+                    headers={"Content-Type": "application/json"},
+                    timeout=AUTH_TIMEOUT,
+                )
+
+            res.raise_for_status()
+            data = res.json()
+
+            connection_id = data.get("connectionId")
+            if not connection_id:
+                raise requests.exceptions.RequestException(
+                    "Negotiate response missing connectionId"
+                )
+
+            params = urllib.parse.urlencode({"id": connection_id})
+            extra_headers: Dict[str, str] = {
+                "User-Agent": "BestHTTP",
+                "Accept-Encoding": "gzip,identity",
+            }
+            if session.cookies:
+                extra_headers["Cookie"] = "; ".join(
+                    f"{name}={value}" for name, value in session.cookies.items()
+                )
+            if token is not None:
+                extra_headers["Authorization"] = token.authorization_header
+
+            return data, res.headers, params, extra_headers
+
+    except requests.exceptions.RequestException as error:
+        print(f"Negotiation failed: {error}")
+        return None, None, None, None
+
+
+def parse_signalr_messages(raw_message: str) -> List[Dict[str, Any]]:
+    """
+    Parse a raw SignalR Core WebSocket frame into normalized message dicts.
+
+    SignalR Core frames are delimited by ASCII record separator (0x1e).
+    Normalizes Completion (type 3) into {"R": ...} and 'feed' Invocation (type 1)
+    into {"M": [{"H": "Streaming", "M": "feed", "A": [...]}]}.
+    """
+    parsed: List[Dict[str, Any]] = []
+    for record in raw_message.split(RECORD_SEPARATOR):
+        if not record:
+            continue
+        msg = json.loads(record)
+        if not isinstance(msg, dict):
+            continue
+
+        if "type" not in msg:
+            parsed.append(msg)
+            continue
+
+        msg_type = msg.get("type")
+        if msg_type == 6:  # PingMessage
+            continue
+        if msg_type == 7:  # CloseMessage
+            raise ConnectionError(
+                msg.get("error") or "SignalR connection closed by server"
+            )
+        if msg_type == 3:  # CompletionMessage
+            if msg.get("error"):
+                raise ConnectionError(f"SignalR invocation error: {msg['error']}")
+            result = msg.get("result")
+            if isinstance(result, dict):
+                parsed.append({"R": result})
+        elif msg_type == 1:  # InvocationMessage
+            if str(msg.get("target", "")).lower() == "feed":
+                args = msg.get("arguments") or []
+                parsed.append(
+                    {"M": [{"H": "Streaming", "M": "feed", "A": args}]}
+                )
+
+    return parsed
+
+
+async def subscribe_signalr(
+    sock: Any, topics: List[str], invocation_id: str = "1"
+) -> List[Dict[str, Any]]:
+    """
+    Perform the SignalR Core JSON handshake and subscribe to the requested topics.
+
+    Returns any trailing SignalR messages bundled with the handshake response.
+    """
+    await sock.send(
+        json.dumps({"protocol": "json", "version": 1}) + RECORD_SEPARATOR
+    )
+    handshake_raw = await sock.recv()
+    records = [r for r in handshake_raw.split(RECORD_SEPARATOR) if r]
+    if not records:
+        raise ConnectionError("Empty SignalR handshake response")
+
+    handshake_resp = json.loads(records[0])
+    if handshake_resp.get("error"):
+        raise ConnectionError(
+            f"SignalR handshake failed: {handshake_resp['error']}"
+        )
+
+    await sock.send(
+        json.dumps(
+            {
+                "type": 1,
+                "invocationId": invocation_id,
+                "target": "Subscribe",
+                "arguments": [topics],
+            }
+        )
+        + RECORD_SEPARATOR
+    )
+
+    if len(records) > 1:
+        return parse_signalr_messages(RECORD_SEPARATOR.join(records[1:]))
+    return []
+
+
+async def iter_signalr_messages(
+    sock: Any, initial_messages: Optional[List[Dict[str, Any]]] = None
+) -> AsyncIterator[Dict[str, Any]]:
+    """Yield parsed SignalR messages from initial handshake leftovers and the socket."""
+    for msg in initial_messages or ():
+        yield msg
+    while True:
+        raw_frame = await sock.recv()
+        for msg in parse_signalr_messages(raw_frame):
+            yield msg

@@ -9,11 +9,9 @@ This script specifically subscribes to the 'PitLaneTimeCollection', 'PitStop', a
 
 import asyncio
 import json
-import os
-import urllib.parse
+from typing import Optional
 
 import redis.asyncio as redis
-import requests
 import websockets
 from dotenv import load_dotenv
 from redis.commands.json.path import Path
@@ -37,52 +35,21 @@ load_dotenv()
 ) = load_config()
 
 
-def negotiate():
+def negotiate(username: Optional[str] = None, password: Optional[str] = None):
     """
-    Negotiates a connection with the SignalR server to get a connection token.
+    Negotiates a connection with the SignalR Core server to get a connection ID
+    and authenticated headers.
 
     Returns:
         A tuple containing the connection data, headers, URL parameters, and
         extra headers required for the WebSocket connection.
     """
-    connectionData = [{"name": "Streaming"}]
-    try:
-        # Get a connection token from the SignalR server.
-        res = requests.get(
-            f"{livetimingUrl}/negotiate",
-            params={
-                "connectionData": json.dumps(connectionData),
-                "clientProtocol": clientProtocol,
-            },
-        )
-        res.raise_for_status()  # Raise an exception for bad status codes
-        data = res.json()
-
-        # Construct the WebSocket URL parameters.
-        params = urllib.parse.urlencode(
-            {
-                "clientProtocol": clientProtocol,
-                "transport": "webSockets",
-                "connectionToken": data["ConnectionToken"],
-                "connectionData": json.dumps(connectionData),
-            }
-        )
-
-        # Set the necessary headers for the WebSocket connection.
-        extra_headers = {
-            "User-Agent": "BestHTTP",
-            "Accept-Encoding": "gzip,identity",
-            "Cookie": res.headers.get("Set-Cookie", ""),
-        }
-
-        return data, res.headers, params, extra_headers
-
-    except requests.exceptions.RequestException as error:
-        print(f"Negotiation failed: {error}")
-        return None, None, None, None
+    return negotiate_signalr(livetimingUrl, username=username, password=password)
 
 
-async def connectLiveTiming():
+async def connectLiveTiming(
+    username: Optional[str] = None, password: Optional[str] = None
+):
     """
     Connects to the live timing websocket, processes messages, and publishes them to Redis.
     """
@@ -91,7 +58,9 @@ async def connectLiveTiming():
     )
     while True:
         # --- Negotiate Connection ---
-        data, headers, params, extra_headers = negotiate()
+        data, headers, params, extra_headers = await asyncio.to_thread(
+            negotiate, username, password
+        )
         if not params:
             if RETRY:
                 await asyncio.sleep(5)  # Wait before retrying
@@ -102,30 +71,22 @@ async def connectLiveTiming():
         # --- Connect to WebSocket ---
         try:
             async with websockets.connect(
-                f"{websocketUrl}/connect?{params}",
+                f"{websocketUrl}?{params}",
                 additional_headers=extra_headers,
                 ping_interval=None,
             ) as sock:
                 # Subscribe to the required data streams.
-                await sock.send(
-                    json.dumps(
-                        {
-                            "H": "Streaming",
-                            "M": "Subscribe",
-                            "A": [["PitLaneTimeCollection", "PitStop", "PitStopSeries"]],
-                            "I": 1,
-                        }
-                    )
+                initial_messages = await subscribe_signalr(
+                    sock, ["PitLaneTimeCollection", "PitStop", "PitStopSeries"]
                 )
 
                 # --- Message Processing Loop ---
-                while True:
-                    messages = json.loads(await sock.recv())
-
+                async for messages in iter_signalr_messages(sock, initial_messages):
                     # Handle full data structure updates.
                     if "R" in messages:
                         for key, value in messages["R"].items():
-                            value.pop("_kf", None)
+                            if isinstance(value, dict):
+                                value.pop("_kf", None)
                             await redis_client.json().set(key, Path.root_path(), value)
 
                     # Handle delta updates.
@@ -133,7 +94,8 @@ async def connectLiveTiming():
                         for msg in messages["M"]:
                             if msg["H"] == "Streaming":
                                 channel, delta = msg["A"][0], msg["A"][1]
-                                delta.pop("_kf", None)
+                                if isinstance(delta, dict):
+                                    delta.pop("_kf", None)
 
                                 if channel == "Heartbeat":
                                     continue
