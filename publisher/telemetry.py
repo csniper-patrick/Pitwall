@@ -37,18 +37,6 @@ load_dotenv()
 ) = load_config()
 
 
-def negotiate(username: Optional[str] = None, password: Optional[str] = None):
-    """
-    Negotiates a connection with the SignalR Core server to get a connection ID
-    and authenticated headers.
-
-    Returns:
-        A tuple containing the connection data, headers, URL parameters, and
-        extra headers required for the WebSocket connection.
-    """
-    return negotiate_signalr(livetimingUrl, username=username, password=password)
-
-
 async def connectLiveTiming(
     username: Optional[str] = None, password: Optional[str] = None
 ):
@@ -62,7 +50,7 @@ async def connectLiveTiming(
         # --- Negotiate Connection ---
         # Offload sync OAuth login and SignalR negotiation so the event loop stays responsive.
         data, headers, params, extra_headers = await asyncio.to_thread(
-            negotiate, username, password
+            negotiate_signalr, livetimingUrl, username=username, password=password
         )
         if not params:
             if RETRY:

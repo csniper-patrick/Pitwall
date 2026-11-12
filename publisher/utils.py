@@ -125,6 +125,12 @@ def load_config() -> Tuple[bool, str, bool, str, str, str, float, str, int, str]
     Returns:
         A tuple containing the loaded configuration settings.
     """
+    log_level = os.getenv("LOG_LEVEL", default="INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     # --- General Settings ---
     USE_SSL = os.getenv("USE_SSL", default="True").lower() == "true"
     API_HOST = os.getenv("API_HOST", default="livetiming.formula1.com")
@@ -219,13 +225,16 @@ class TokenManager:
 
     def __init__(self, path: Optional[Path] = None):
         self._custom_path = path
-        self._token: Optional[SubscriptionToken] = None
+        self._tokens: Dict[str, SubscriptionToken] = {}
 
-    @property
-    def token_path(self) -> Path:
+    def _token_path_for(self, user_hash: Optional[str] = None) -> Path:
         if self._custom_path is not None:
             return self._custom_path
-        return Path(os.getenv("F1_TOKEN_PATH", "/tmp/f1auth_token.json"))
+        if env_path := os.getenv("F1_TOKEN_PATH"):
+            return Path(env_path)
+        if user_hash:
+            return Path(f"/tmp/f1auth_token_{user_hash}.json")
+        return Path("/tmp/f1auth_token.json")
 
     def get(
         self,
@@ -241,49 +250,84 @@ class TokenManager:
                 return token
 
         logger.info("Signing in to Formula 1 account...")
-        self._token = login(username, password)
+        token = login(username, password)
+        self._tokens[user_hash] = token
         logger.info("Sign-in successful.")
 
         try:
-            self.store(self._token)
+            self.store(token, user_hash=user_hash)
         except OSError as exc:
             logger.warning(f"Failed to store the access token: {exc}")
-        return self._token
+        return token
 
     def get_stored(self, user_hash: Optional[str] = None) -> Optional[SubscriptionToken]:
         """Return a stored token from memory or disk if it matches user_hash."""
-        token = self._token
-        if token is None:
-            try:
-                data = json.loads(self.token_path.read_text(encoding="utf-8"))
-                if data.pop("version", None) != self.VERSION:
-                    return None
-                token = SubscriptionToken(**data)
-                self._token = token
-            except (OSError, ValueError, TypeError, KeyError, AttributeError):
-                return None
+        if user_hash is not None:
+            token = self._tokens.get(user_hash)
+            if token is not None:
+                return token if token.user_hash == user_hash else None
+        elif len(self._tokens) == 1:
+            return next(iter(self._tokens.values()))
 
-        # Ensure cached tokens are scoped to the active account username.
+        path = self._token_path_for(user_hash)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if data.pop("version", None) != self.VERSION:
+                return None
+            token = SubscriptionToken(**data)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            return None
+
+        # Verify account ownership before caching in memory to prevent cross-user poisoning.
         if user_hash is not None and token.user_hash != user_hash:
             return None
+
+        self._tokens[token.user_hash] = token
         return token
 
-    def store(self, token: SubscriptionToken) -> None:
-        """Persist the token to disk with owner-only permissions."""
-        path = self.token_path
+    def store(
+        self, token: SubscriptionToken, user_hash: Optional[str] = None
+    ) -> None:
+        """Persist the token to disk atomically with owner-only permissions."""
+        path = self._token_path_for(user_hash or token.user_hash)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.touch(mode=0o600, exist_ok=True)
-        os.chmod(path, 0o600)
-        path.write_text(
-            json.dumps({"version": self.VERSION, **asdict(token)}),
-            encoding="utf-8",
-        )
+        tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        payload = json.dumps({"version": self.VERSION, **asdict(token)})
+        fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            os.chmod(tmp_path, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+        except BaseException:
+            with contextlib.suppress(FileNotFoundError):
+                tmp_path.unlink()
+            raise
+        os.replace(tmp_path, path)
 
-    def clear(self) -> None:
-        """Remove the stored token from memory and disk."""
-        self._token = None
+    def clear(self, user_hash: Optional[str] = None) -> None:
+        """Remove the stored token for user_hash (or all tokens if omitted)."""
+        if user_hash is not None:
+            self._tokens.pop(user_hash, None)
+            path = self._token_path_for(user_hash)
+            # When sharing a custom/env file path, only unlink if it belongs to user_hash.
+            if self._custom_path is not None or os.getenv("F1_TOKEN_PATH"):
+                try:
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    if data.get("user_hash") != user_hash:
+                        return
+                except (OSError, ValueError, TypeError):
+                    pass
+            with contextlib.suppress(FileNotFoundError):
+                path.unlink()
+            return
+
+        known_hashes = list(self._tokens.keys())
+        self._tokens.clear()
+        for known_hash in known_hashes:
+            with contextlib.suppress(FileNotFoundError):
+                self._token_path_for(known_hash).unlink()
         with contextlib.suppress(FileNotFoundError):
-            self.token_path.unlink()
+            self._token_path_for(None).unlink()
 
 
 _token_manager = TokenManager()
@@ -448,9 +492,11 @@ def get_token(
     )
 
 
-def clear_token() -> None:
-    """Remove the cached F1 subscription token."""
-    _token_manager.clear()
+def clear_token(username: Optional[str] = None) -> None:
+    """Remove the cached F1 subscription token for username (or all if omitted)."""
+    resolved_user = username if username is not None else os.getenv("F1_USERNAME")
+    user_hash = _hash_username(resolved_user) if resolved_user else None
+    _token_manager.clear(user_hash=user_hash)
 
 
 def _try_get_token(
@@ -464,7 +510,7 @@ def _try_get_token(
             force_renew=force_renew, username=username, password=password
         )
     except F1AuthError as exc:
-        print(
+        logger.warning(
             f"Failed to authenticate with Formula 1 account, "
             f"continuing without authentication: {exc}"
         )
@@ -508,7 +554,7 @@ def negotiate_signalr(
 
             # Retry once with a fresh token in case the cached JWT was revoked before exp.
             if res.status_code == 401 and token is not None:
-                clear_token()
+                clear_token(username=username)
                 token = _try_get_token(
                     force_renew=True, username=username, password=password
                 )
@@ -546,7 +592,7 @@ def negotiate_signalr(
             return data, res.headers, params, extra_headers
 
     except requests.exceptions.RequestException as error:
-        print(f"Negotiation failed: {error}")
+        logger.error(f"Negotiation failed: {error}")
         return None, None, None, None
 
 
