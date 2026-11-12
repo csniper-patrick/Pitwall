@@ -99,6 +99,8 @@ async def connectLiveTiming(
         host=REDIS_HOST, port=REDIS_PORT, db=0, socket_keepalive=True
     )
     while True:
+        # --- Negotiate Connection ---
+        # Offload sync OAuth login and SignalR negotiation so the event loop stays responsive.
         data, headers, params, extra_headers = await asyncio.to_thread(
             negotiate, username, password
         )
@@ -109,14 +111,17 @@ async def connectLiveTiming(
             else:
                 break
 
+        # --- Connect to WebSocket ---
         try:
             async with websockets.connect(
                 f"{websocketUrl}?{params}",
                 additional_headers=extra_headers,
                 ping_interval=None,
             ) as sock:
+                # Complete SignalR Core JSON handshake and subscribe to TimingDataF1.
                 initial_messages = await subscribe_signalr(sock, ["TimingDataF1"])
 
+                # --- Message Processing Loop ---
                 async for messages in iter_signalr_messages(sock, initial_messages):
                     if "R" in messages:
                         for key, value in messages["R"].items():

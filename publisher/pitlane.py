@@ -58,6 +58,7 @@ async def connectLiveTiming(
     )
     while True:
         # --- Negotiate Connection ---
+        # Offload sync OAuth login and SignalR negotiation so the event loop stays responsive.
         data, headers, params, extra_headers = await asyncio.to_thread(
             negotiate, username, password
         )
@@ -75,7 +76,7 @@ async def connectLiveTiming(
                 additional_headers=extra_headers,
                 ping_interval=None,
             ) as sock:
-                # Subscribe to the required data streams.
+                # Complete SignalR Core JSON handshake and subscribe to pit lane streams.
                 initial_messages = await subscribe_signalr(
                     sock, ["PitLaneTimeCollection", "PitStop", "PitStopSeries"]
                 )
@@ -85,6 +86,7 @@ async def connectLiveTiming(
                     # Handle full data structure updates.
                     if "R" in messages:
                         for key, value in messages["R"].items():
+                            # Some topic snapshots may be null when inactive; guard before popping _kf.
                             if isinstance(value, dict):
                                 value.pop("_kf", None)
                             await redis_client.json().set(key, Path.root_path(), value)

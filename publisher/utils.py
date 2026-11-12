@@ -21,14 +21,15 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# --- Formula 1 Account Auth & SignalR Core Constants ---
 ACCOUNT_ORIGIN = "https://account.formula1.com"
 CONFIG_SCRIPT_URL = f"{ACCOUNT_ORIGIN}/scripts/main.min.js"
 IDP_ORIGIN = "https://id.formula1.com"
 AUTHORIZE_URL = f"{IDP_ORIGIN}/as/authorize"
 TOKEN_URL = f"{IDP_ORIGIN}/as/token"
 AUTH_TIMEOUT = (5, 30)
-EXPIRY_MARGIN = 300
-RECORD_SEPARATOR = "\x1e"
+EXPIRY_MARGIN = 300  # Renew tokens 5 minutes before expiry to avoid mid-handshake 401s.
+RECORD_SEPARATOR = "\x1e"  # SignalR Core JSON message delimiter.
 
 DEFAULT_AUTH_HEADERS = {
     "User-Agent": (
@@ -162,6 +163,7 @@ def load_config() -> Tuple[bool, str, bool, str, str, str, float, str, int, str]
 
 def _decode_jwt_payload(token: str) -> Dict[str, Any]:
     """Decode the payload of a JWT without verifying its signature."""
+    # Signature verification is handled by the F1 API server; the client only reads claims.
     try:
         parts = token.split(".")
         if len(parts) != 3:
@@ -261,6 +263,7 @@ class TokenManager:
             except (OSError, ValueError, TypeError, KeyError, AttributeError):
                 return None
 
+        # Ensure cached tokens are scoped to the active account username.
         if user_hash is not None and token.user_hash != user_hash:
             return None
         return token
@@ -334,13 +337,16 @@ def _code_from_flow_response(resp: requests.Response, state: str) -> str:
 def login(username: str, password: str) -> SubscriptionToken:
     """Authenticate with Formula 1 using username and password and return a SubscriptionToken."""
     try:
+        # Share one Session so PingOne/DaVinci flow cookies persist across all OAuth steps.
         with requests.Session() as session:
             session.headers.update(DEFAULT_AUTH_HEADERS)
+            # 1. Discover dynamic DaVinci OAuth client/policy IDs.
             client_id, policy_id = _fetch_auth_config(session)
 
             code_verifier = secrets.token_urlsafe(64)
             state = secrets.token_urlsafe(24)
 
+            # 2. Request redirectless DaVinci login flow (response_mode=pi.flow).
             resp = session.get(
                 AUTHORIZE_URL,
                 params={
@@ -370,9 +376,11 @@ def login(username: str, password: str) -> SubscriptionToken:
                     "Unexpected response when starting the sign-in."
                 ) from exc
 
+            # Never post credentials outside the expected Formula 1 IdP origin.
             if not submit_url.startswith(f"{IDP_ORIGIN}/"):
                 raise F1AuthError(f"Unexpected sign-in url {submit_url}.")
 
+            # 3. Submit username/password to obtain the authorization code.
             resp = session.post(
                 submit_url,
                 json={
@@ -392,6 +400,7 @@ def login(username: str, password: str) -> SubscriptionToken:
             )
             code = _code_from_flow_response(resp, state)
 
+            # 4. Exchange authorization code + PKCE verifier for the access token.
             resp = session.post(
                 TOKEN_URL,
                 data={
@@ -488,7 +497,7 @@ def negotiate_signalr(
             if token is not None:
                 session.headers["Authorization"] = token.authorization_header
 
-            # Pre-negotiate to obtain the AWSALBCORS load-balancer sticky cookie.
+            # Pre-negotiate to obtain AWSALBCORS sticky cookie (returned even on HTTP 405).
             session.options(negotiate_url, timeout=AUTH_TIMEOUT)
 
             res = session.post(
@@ -497,6 +506,7 @@ def negotiate_signalr(
                 timeout=AUTH_TIMEOUT,
             )
 
+            # Retry once with a fresh token in case the cached JWT was revoked before exp.
             if res.status_code == 401 and token is not None:
                 clear_token()
                 token = _try_get_token(
@@ -561,19 +571,19 @@ def parse_signalr_messages(raw_message: str) -> List[Dict[str, Any]]:
             continue
 
         msg_type = msg.get("type")
-        if msg_type == 6:  # PingMessage
+        if msg_type == 6:  # PingMessage (keepalive; nothing to publish)
             continue
-        if msg_type == 7:  # CloseMessage
+        if msg_type == 7:  # CloseMessage (raise to trigger reconnect loop)
             raise ConnectionError(
                 msg.get("error") or "SignalR connection closed by server"
             )
-        if msg_type == 3:  # CompletionMessage
+        if msg_type == 3:  # CompletionMessage (initial topic snapshots)
             if msg.get("error"):
                 raise ConnectionError(f"SignalR invocation error: {msg['error']}")
             result = msg.get("result")
             if isinstance(result, dict):
                 parsed.append({"R": result})
-        elif msg_type == 1:  # InvocationMessage
+        elif msg_type == 1:  # InvocationMessage (incremental stream updates)
             if str(msg.get("target", "")).lower() == "feed":
                 args = msg.get("arguments") or []
                 parsed.append(
@@ -617,6 +627,7 @@ async def subscribe_signalr(
         + RECORD_SEPARATOR
     )
 
+    # Forward any messages piggybacked in the same WebSocket frame as the handshake.
     if len(records) > 1:
         return parse_signalr_messages(RECORD_SEPARATOR.join(records[1:]))
     return []

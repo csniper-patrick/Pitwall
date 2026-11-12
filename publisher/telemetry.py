@@ -60,6 +60,7 @@ async def connectLiveTiming(
     )
     while True:
         # --- Negotiate Connection ---
+        # Offload sync OAuth login and SignalR negotiation so the event loop stays responsive.
         data, headers, params, extra_headers = await asyncio.to_thread(
             negotiate, username, password
         )
@@ -77,7 +78,7 @@ async def connectLiveTiming(
                 additional_headers=extra_headers,
                 ping_interval=None,
             ) as sock:
-                # Subscribe to the compressed data streams.
+                # Complete SignalR Core JSON handshake and subscribe to compressed streams.
                 initial_messages = await subscribe_signalr(
                     sock, ["Position.z", "CarData.z"]
                 )
