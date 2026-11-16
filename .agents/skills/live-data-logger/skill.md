@@ -1,3 +1,11 @@
+---
+name: live-data-logger
+description: >-
+  Capture live Formula 1 timing and telemetry data streams from active race
+  sessions into local JSON log archives for mock-api replay and integration testing.
+  Use when recording live F1 SignalR timing feeds during an active weekend session.
+---
+
 # Skill: Live Data Logger
 
 Capture live Formula 1 timing and telemetry data streams from active race sessions to create local mock archives for testing.
