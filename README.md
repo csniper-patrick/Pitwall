@@ -130,7 +130,7 @@ You will need to create two environment files: one for the publisher services an
 ```bash
 cp publish.env.example publish.env
 ```
-Edit `publish.env` with your settings.
+Edit `publish.env` with your settings. `F1_USERNAME` and `F1_PASSWORD` are optional: when set with an active F1TV subscription, publishers authenticate to Formula 1 Live Timing; if omitted or if authentication fails, they log a warning and fall back to an unauthenticated connection (which may return partial or empty data for some sessions).
 
 **For the Discord bot:**
 ```bash
@@ -180,6 +180,9 @@ The following environment variables are used to configure the services:
 | `REDIS_HOST` | No | The hostname of the Redis service. Defaults to `redis`. |
 | `REDIS_PORT` | No | The port for the Redis service. Defaults to `6379`. |
 | `RETRY` | No | Whether the publisher should retry connecting on failure. Defaults to `True`. |
+| `F1_USERNAME` | No | Formula 1 account email/username used to authenticate with Live Timing. |
+| `F1_PASSWORD` | No | Formula 1 account password used alongside `F1_USERNAME`. |
+| `F1_TOKEN_PATH` | No | Custom file path for caching the F1 subscription token. Defaults to `/tmp/f1auth_token_<user_hash>.json`. |
 
 ### Add Bot to Server
 Use **OAuth2 URL Generator**
