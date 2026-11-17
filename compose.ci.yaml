@@ -7,12 +7,15 @@ x-publisher-dev-container: &publisher-dev-container
   depends_on:
     redis:
       condition: service_started
+    tor:
+      condition: service_started
   environment:
     REDIS_HOST: redis
     USE_SSL: False
     API_HOST: proxy
     RETRY: False
     STARTUP_DELAY: 10
+    SOCKS_PROXY: tor:9050
 
 x-discord-dev-container: &discord-dev-container
   <<: *dev-container 
@@ -27,6 +30,10 @@ x-discord-dev-container: &discord-dev-container
     VER_TAG: ${VER_TAG}
 
 services:
+
+  tor:
+    <<: *dev-container
+    command: --tor
 
   proxy:
     image: docker.io/library/nginx:alpine
