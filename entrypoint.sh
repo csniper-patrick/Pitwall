@@ -1,6 +1,6 @@
-#!/bin/bash -x
+#!/bin/bash -x 
 set -eo pipefail
-cd "$(dirname "${0}")"
+cd $(dirname ${0})
 
 if [[ "$1" == "--tor" ]]; then
 	shift
@@ -14,7 +14,7 @@ fi
 	apt-get -y install ffmpeg proxychains4
 )
 
-sleep "${STARTUP_DELAY:-0}"
+sleep ${STARTUP_DELAY:-0}
 
 is_ipv4() {
 	[[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
@@ -55,6 +55,31 @@ wait_for_tcp() {
 	return 1
 }
 
+update_hosts_entry() {
+	local ip="$1"
+	local host="$2"
+	if awk -v ip="$ip" -v h="$host" '
+		$1 !~ /^#/ && $1 == ip {
+			for (i = 2; i <= NF; i++) if ($i == h) found = 1
+		}
+		END { exit !found }
+	' /etc/hosts; then
+		return 0
+	fi
+	local content
+	content=$(awk -v h="$host" '
+		$1 ~ /^#/ { print; next }
+		{
+			out = $1; kept = 0
+			for (i = 2; i <= NF; i++) {
+				if ($i != h) { out = out " " $i; kept = 1 }
+			}
+			if (kept) print out
+		}
+	' /etc/hosts)
+	printf "%s\n%s %s\n" "$content" "$ip" "$host" > /etc/hosts
+}
+
 CMD_PREFIX=()
 if [[ -n "$SOCKS_PROXY" ]]; then
 	PROXY_SPEC="${SOCKS_PROXY#socks5://}"
@@ -83,13 +108,11 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 		exit 1
 	fi
 
-	REDIS_TARGET="${REDIS_HOST:-redis}"
-	REDIS_TARGET="${REDIS_TARGET%%:*}"
 	for raw_host in "${REDIS_HOST:-redis}" "${API_HOST:-}"; do
 		local_host="${raw_host%%:*}"
 		if [[ -n "$local_host" ]] && ! is_ipv4 "$local_host"; then
 			if ! HOST_IP=$(resolve_ipv4 "$local_host"); then
-				if [[ "$local_host" == "$REDIS_TARGET" || "$local_host" != *"."* ]]; then
+				if [[ "$local_host" != *"."* ]]; then
 					echo "Error: failed to resolve host '$local_host'" >&2
 					exit 1
 				fi
@@ -97,24 +120,7 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 				continue
 			fi
 			if [[ "$HOST_IP" =~ ^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.) ]]; then
-				if ! awk -v ip="$HOST_IP" -v h="$local_host" '
-					$1 !~ /^#/ && $1 == ip {
-						for (i = 2; i <= NF; i++) if ($i == h) found = 1
-					}
-					END { exit !found }
-				' /etc/hosts; then
-					HOSTS_CONTENT=$(awk -v h="$local_host" '
-						$1 ~ /^#/ { print; next }
-						{
-							out = $1; kept = 0
-							for (i = 2; i <= NF; i++) {
-								if ($i != h) { out = out " " $i; kept = 1 }
-							}
-							if (kept) print out
-						}
-					' /etc/hosts)
-					printf "%s\n%s %s\n" "$HOSTS_CONTENT" "$HOST_IP" "$local_host" > /etc/hosts
-				fi
+				update_hosts_entry "$HOST_IP" "$local_host"
 			fi
 		fi
 	done

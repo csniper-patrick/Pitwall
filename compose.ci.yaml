@@ -38,6 +38,9 @@ services:
     command: --tor
     healthcheck:
       test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/9050"]
+      interval: 5s
+      retries: 10
+      start_period: 10s
 
   proxy:
     image: docker.io/library/nginx:alpine
