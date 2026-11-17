@@ -10,7 +10,7 @@ x-publisher-dev-container: &publisher-dev-container
     redis:
       condition: service_started
     tor:
-      condition: service_started
+      condition: service_healthy
     proxy:
       condition: service_started
   env_file:
@@ -30,7 +30,7 @@ services:
     <<: *dev-container
     command: /opt/entrypoint.sh --tor
     healthcheck:
-      test: python -c "import socket; socket.create_connection(('127.0.0.1', 9050), timeout=2).close()"
+      test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/9050"]
 
   proxy:
     image: docker.io/library/nginx:alpine

@@ -45,7 +45,7 @@ wait_for_tcp() {
 	local port="$2"
 	local retries="${PROXY_READY_RETRIES:-30}"
 	for ((i = 1; i <= retries; i++)); do
-		if python -c "import socket; socket.create_connection(('$host', $port), timeout=2).close()" 2>/dev/null; then
+		if timeout 2 bash -c '</dev/tcp/"$1"/"$2"' _ "$host" "$port" 2>/dev/null; then
 			return 0
 		fi
 		if ((i < retries)); then
@@ -83,23 +83,38 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 		exit 1
 	fi
 
+	REDIS_TARGET="${REDIS_HOST:-redis}"
+	REDIS_TARGET="${REDIS_TARGET%%:*}"
 	for raw_host in "${REDIS_HOST:-redis}" "${API_HOST:-}"; do
 		local_host="${raw_host%%:*}"
 		if [[ -n "$local_host" ]] && ! is_ipv4 "$local_host"; then
 			if ! HOST_IP=$(resolve_ipv4 "$local_host"); then
-				echo "Error: failed to resolve host '$local_host'" >&2
-				exit 1
+				if [[ "$local_host" == "$REDIS_TARGET" || "$local_host" != *"."* ]]; then
+					echo "Error: failed to resolve host '$local_host'" >&2
+					exit 1
+				fi
+				echo "Warning: could not pre-resolve '$local_host'; deferring to proxy_dns" >&2
+				continue
 			fi
 			if [[ "$HOST_IP" =~ ^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.) ]]; then
-				HOSTS_CONTENT=$(awk -v h="$local_host" '
-					{
-						for (i = 2; i <= NF; i++) {
-							if ($i == h) next
-						}
-						print
+				if ! awk -v ip="$HOST_IP" -v h="$local_host" '
+					$1 !~ /^#/ && $1 == ip {
+						for (i = 2; i <= NF; i++) if ($i == h) found = 1
 					}
-				' /etc/hosts)
-				printf "%s\n%s %s\n" "$HOSTS_CONTENT" "$HOST_IP" "$local_host" > /etc/hosts
+					END { exit !found }
+				' /etc/hosts; then
+					HOSTS_CONTENT=$(awk -v h="$local_host" '
+						$1 ~ /^#/ { print; next }
+						{
+							out = $1; kept = 0
+							for (i = 2; i <= NF; i++) {
+								if ($i != h) { out = out " " $i; kept = 1 }
+							}
+							if (kept) print out
+						}
+					' /etc/hosts)
+					printf "%s\n%s %s\n" "$HOSTS_CONTENT" "$HOST_IP" "$local_host" > /etc/hosts
+				fi
 			fi
 		fi
 	done
@@ -118,10 +133,6 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 		[ProxyList]
 		socks5 $PROXY_IP $PROXY_PORT
 	EOF
-
-	if [[ "$1" == *"radio.py" ]]; then
-		python -c "import os; from transformers import pipeline; pipeline('automatic-speech-recognition', model=os.getenv('WHISPERS_MODEL', 'distil-whisper/distil-medium.en'), return_timestamps=True)"
-	fi
 
 	CMD_PREFIX=(proxychains4)
 fi
