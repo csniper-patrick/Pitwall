@@ -66,7 +66,7 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 		PROXY_PORT="9050"
 	fi
 
-	if [[ -z "$PROXY_HOST" || ! "$PROXY_PORT" =~ ^[0-9]+$ ]]; then
+	if [[ -z "$PROXY_HOST" || ! "$PROXY_PORT" =~ ^[0-9]+$ ]] || ((10#$PROXY_PORT < 1 || 10#$PROXY_PORT > 65535)); then
 		echo "Error: invalid SOCKS_PROXY '$SOCKS_PROXY'" >&2
 		exit 1
 	fi
@@ -78,11 +78,12 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 
 	REDIS_NAME="${REDIS_HOST:-redis}"
 	REDIS_NAME="${REDIS_NAME%%:*}"
-	for raw_host in "$REDIS_NAME" "${API_HOST:-}"; do
-		target_host="${raw_host%%:*}"
+	API_NAME="${API_HOST:-}"
+	API_NAME="${API_NAME%%:*}"
+	for target_host in "$REDIS_NAME" "$API_NAME"; do
 		if [[ -n "$target_host" ]] && ! is_ipv4 "$target_host"; then
 			if ! HOST_IP=$(resolve_ipv4 "$target_host"); then
-				if [[ "$target_host" == "$REDIS_NAME" || "${USE_SSL:-True}" =~ ^[Ff]alse$ || "$target_host" != *"."* ]]; then
+				if [[ "$target_host" == "$REDIS_NAME" || "${USE_SSL:-True}" != [Tt][Rr][Uu][Ee] || "$target_host" != *"."* ]]; then
 					echo "Error: failed to resolve host '$target_host'" >&2
 					exit 1
 				fi
