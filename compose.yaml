@@ -29,6 +29,8 @@ services:
   tor:
     <<: *app-container
     command: --tor
+    healthcheck:
+      test: python -c "import socket; socket.create_connection(('127.0.0.1', 9050), timeout=2).close()"
 
   redis:
     image: docker.io/redis/redis-stack:latest

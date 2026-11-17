@@ -1,5 +1,6 @@
-#!/bin/bash -x 
-cd $(dirname ${0})
+#!/bin/bash -x
+set -eo pipefail
+cd "$(dirname "${0}")"
 
 if [[ "$1" == "--tor" ]]; then
 	shift
@@ -13,34 +14,92 @@ fi
 	apt-get -y install ffmpeg proxychains4
 )
 
-sleep ${STARTUP_DELAY:-0}
+sleep "${STARTUP_DELAY:-0}"
 
-resolve_ipv4() {
-	if [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo "$1"
-	else
-		getent ahostsv4 "$1" | awk '{print $1; exit}'
-	fi
+is_ipv4() {
+	[[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
 }
 
-CMD_PREFIX=""
-if [[ -n "$SOCKS_PROXY" ]]; then
-	PROXY_HOST="${SOCKS_PROXY%:*}"
-	PROXY_PORT="${SOCKS_PROXY##*:}"
-	[[ "$PROXY_PORT" == "$SOCKS_PROXY" ]] && PROXY_PORT="9050"
+resolve_ipv4() {
+	if is_ipv4 "$1"; then
+		echo "$1"
+		return 0
+	fi
+	local ip=""
+	local retries="${RESOLVE_RETRIES:-5}"
+	for ((i = 1; i <= retries; i++)); do
+		ip=$(getent ahostsv4 "$1" | awk '{print $1; exit}')
+		if [[ -n "$ip" ]]; then
+			echo "$ip"
+			return 0
+		fi
+		if ((i < retries)); then
+			sleep 1
+		fi
+	done
+	return 1
+}
 
-	PROXY_IP=$(resolve_ipv4 "$PROXY_HOST")
-	if [[ -z "$PROXY_IP" ]]; then
+wait_for_tcp() {
+	local host="$1"
+	local port="$2"
+	local retries="${PROXY_READY_RETRIES:-30}"
+	for ((i = 1; i <= retries; i++)); do
+		if python -c "import socket; socket.create_connection(('$host', $port), timeout=2).close()" 2>/dev/null; then
+			return 0
+		fi
+		if ((i < retries)); then
+			sleep 2
+		fi
+	done
+	return 1
+}
+
+CMD_PREFIX=()
+if [[ -n "$SOCKS_PROXY" ]]; then
+	PROXY_SPEC="${SOCKS_PROXY#socks5://}"
+	PROXY_SPEC="${PROXY_SPEC#socks5h://}"
+	if [[ "$PROXY_SPEC" == *":"* ]]; then
+		PROXY_HOST="${PROXY_SPEC%:*}"
+		PROXY_PORT="${PROXY_SPEC##*:}"
+		[[ -z "$PROXY_PORT" ]] && PROXY_PORT="9050"
+	else
+		PROXY_HOST="$PROXY_SPEC"
+		PROXY_PORT="9050"
+	fi
+
+	if [[ -z "$PROXY_HOST" || ! "$PROXY_PORT" =~ ^[0-9]+$ ]]; then
+		echo "Error: invalid SOCKS_PROXY '$SOCKS_PROXY'" >&2
+		exit 1
+	fi
+
+	if ! PROXY_IP=$(resolve_ipv4 "$PROXY_HOST"); then
 		echo "Error: failed to resolve SOCKS_PROXY host '$PROXY_HOST'" >&2
+		exit 1
+	fi
+
+	if ! wait_for_tcp "$PROXY_IP" "$PROXY_PORT"; then
+		echo "Error: SOCKS_PROXY '$PROXY_IP:$PROXY_PORT' is not reachable" >&2
 		exit 1
 	fi
 
 	for raw_host in "${REDIS_HOST:-redis}" "${API_HOST:-}"; do
 		local_host="${raw_host%%:*}"
-		if [[ -n "$local_host" && ! "$local_host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-			HOST_IP=$(resolve_ipv4 "$local_host")
+		if [[ -n "$local_host" ]] && ! is_ipv4 "$local_host"; then
+			if ! HOST_IP=$(resolve_ipv4 "$local_host"); then
+				echo "Error: failed to resolve host '$local_host'" >&2
+				exit 1
+			fi
 			if [[ "$HOST_IP" =~ ^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.) ]]; then
-				grep -qE "[[:space:]]${local_host}(\$|[[:space:]])" /etc/hosts || echo "$HOST_IP $local_host" >> /etc/hosts
+				HOSTS_CONTENT=$(awk -v h="$local_host" '
+					{
+						for (i = 2; i <= NF; i++) {
+							if ($i == h) next
+						}
+						print
+					}
+				' /etc/hosts)
+				printf "%s\n%s %s\n" "$HOSTS_CONTENT" "$HOST_IP" "$local_host" > /etc/hosts
 			fi
 		fi
 	done
@@ -60,7 +119,11 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 		socks5 $PROXY_IP $PROXY_PORT
 	EOF
 
-	CMD_PREFIX="proxychains4"
+	if [[ "$1" == *"radio.py" ]]; then
+		python -c "import os; from transformers import pipeline; pipeline('automatic-speech-recognition', model=os.getenv('WHISPERS_MODEL', 'distil-whisper/distil-medium.en'), return_timestamps=True)"
+	fi
+
+	CMD_PREFIX=(proxychains4)
 fi
 
-exec ${CMD_PREFIX} python ${1:?Missing program} "${@:2}"
+exec "${CMD_PREFIX[@]}" python "${1:?Missing program}" "${@:2}"

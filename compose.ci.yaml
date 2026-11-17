@@ -9,6 +9,8 @@ x-publisher-dev-container: &publisher-dev-container
       condition: service_started
     tor:
       condition: service_started
+    proxy:
+      condition: service_started
   environment:
     REDIS_HOST: redis
     USE_SSL: False
@@ -34,6 +36,8 @@ services:
   tor:
     <<: *dev-container
     command: --tor
+    healthcheck:
+      test: python -c "import socket; socket.create_connection(('127.0.0.1', 9050), timeout=2).close()"
 
   proxy:
     image: docker.io/library/nginx:alpine
