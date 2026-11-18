@@ -16,83 +16,19 @@ fi
 
 sleep ${STARTUP_DELAY:-0}
 
-is_ipv4() {
-	[[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
-}
-
-resolve_ipv4() {
-	if is_ipv4 "$1"; then
-		echo "$1"
-		return 0
-	fi
-	local ip
-	ip=$(getent ahostsv4 "$1" | awk '{print $1; exit}')
-	[[ -n "$ip" ]] && echo "$ip"
-}
-
-update_hosts_entry() {
-	local ip="$1"
-	local host="$2"
-	if awk -v ip="$ip" -v h="$host" '
-		$1 !~ /^#/ && $1 == ip {
-			for (i = 2; i <= NF; i++) if ($i == h) found = 1
-		}
-		END { exit !found }
-	' /etc/hosts; then
-		return 0
-	fi
-	local content
-	content=$(awk -v h="$host" '
-		$1 ~ /^#/ { print; next }
-		{
-			out = $1; kept = 0
-			for (i = 2; i <= NF; i++) {
-				if ($i != h) { out = out " " $i; kept = 1 }
-			}
-			if (kept) print out
-		}
-	' /etc/hosts)
-	printf "%s\n%s %s\n" "$content" "$ip" "$host" > /etc/hosts
-}
-
 CMD_PREFIX=()
 if [[ -n "$SOCKS_PROXY" ]]; then
-	if [[ "$SOCKS_PROXY" == *":"* ]]; then
-		PROXY_HOST="${SOCKS_PROXY%:*}"
-		PROXY_PORT="${SOCKS_PROXY##*:}"
-		[[ -z "$PROXY_PORT" ]] && PROXY_PORT="9050"
-	else
-		PROXY_HOST="$SOCKS_PROXY"
-		PROXY_PORT="9050"
-	fi
+	PROXY_HOST="${SOCKS_PROXY%:*}"
+	PROXY_PORT="${SOCKS_PROXY##*:}"
+	[[ "$PROXY_PORT" == "$SOCKS_PROXY" || -z "$PROXY_PORT" ]] && PROXY_PORT="9050"
+	PROXY_IP=$(getent ahostsv4 "$PROXY_HOST" | awk '{print $1; exit}' || true)
 
-	if [[ -z "$PROXY_HOST" || ! "$PROXY_PORT" =~ ^[0-9]+$ ]] || ((10#$PROXY_PORT < 1 || 10#$PROXY_PORT > 65535)); then
-		echo "Error: invalid SOCKS_PROXY '$SOCKS_PROXY'" >&2
-		exit 1
-	fi
-
-	if ! PROXY_IP=$(resolve_ipv4 "$PROXY_HOST"); then
-		echo "Error: failed to resolve SOCKS_PROXY host '$PROXY_HOST'" >&2
-		exit 1
-	fi
-
-	REDIS_NAME="${REDIS_HOST:-redis}"
-	REDIS_NAME="${REDIS_NAME%%:*}"
-	API_NAME="${API_HOST:-}"
-	API_NAME="${API_NAME%%:*}"
-	for target_host in "$REDIS_NAME" "$API_NAME"; do
-		if [[ -n "$target_host" ]] && ! is_ipv4 "$target_host"; then
-			if ! HOST_IP=$(resolve_ipv4 "$target_host"); then
-				if [[ "$target_host" == "$REDIS_NAME" || "${USE_SSL:-True}" != [Tt][Rr][Uu][Ee] || "$target_host" != *"."* ]]; then
-					echo "Error: failed to resolve host '$target_host'" >&2
-					exit 1
-				fi
-				echo "Warning: could not pre-resolve '$target_host'; deferring to proxy_dns" >&2
-				continue
-			fi
-			if [[ "$HOST_IP" =~ ^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.) ]]; then
-				update_hosts_entry "$HOST_IP" "$target_host"
-			fi
+	for host in "${REDIS_HOST:-redis}" "${API_HOST:-}"; do
+		host="${host%%:*}"
+		[[ -z "$host" ]] && continue
+		ip=$(getent ahostsv4 "$host" | awk '{print $1; exit}' || true)
+		if [[ "$ip" =~ ^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.) ]]; then
+			grep -qE "[[:space:]]${host}(\$|[[:space:]])" /etc/hosts || echo "$ip $host" >> /etc/hosts
 		fi
 	done
 
@@ -108,7 +44,7 @@ if [[ -n "$SOCKS_PROXY" ]]; then
 		localnet 192.168.0.0/255.255.0.0
 
 		[ProxyList]
-		socks5 $PROXY_IP $PROXY_PORT
+		socks5 ${PROXY_IP:?Failed to resolve $PROXY_HOST} $PROXY_PORT
 	EOF
 
 	CMD_PREFIX=(proxychains4)
