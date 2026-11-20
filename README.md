@@ -183,6 +183,7 @@ The following environment variables are used to configure the services:
 | `F1_USERNAME` | No | Formula 1 account email/username used to authenticate with Live Timing. |
 | `F1_PASSWORD` | No | Formula 1 account password used alongside `F1_USERNAME`. |
 | `F1_TOKEN_PATH` | No | Custom file path for caching the F1 subscription token. Defaults to `/tmp/f1auth_token_<user_hash>.json`. |
+| `SOCKS_PROXY` | No | SOCKS5 proxy address (`host[:port]`, e.g., `tor:9050`) to route publisher traffic through `proxychains4`. |
 
 ### Add Bot to Server
 Use **OAuth2 URL Generator**
