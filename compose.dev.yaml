@@ -9,6 +9,10 @@ x-publisher-dev-container: &publisher-dev-container
   depends_on:
     redis:
       condition: service_started
+    tor:
+      condition: service_healthy
+    proxy:
+      condition: service_started
   env_file:
     - publish-dev.env
 
@@ -21,6 +25,14 @@ x-discord-dev-container: &discord-dev-container
     - discord-dev.env
 
 services:
+
+  tor:
+    <<: *dev-container
+    command: /opt/entrypoint.sh --tor
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/9050"]
+      interval: 5s
+      start_period: 60s
 
   proxy:
     image: docker.io/library/nginx:alpine
