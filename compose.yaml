@@ -11,8 +11,6 @@ x-publisher-app-container: &publisher-app-container
   depends_on:
     redis:
       condition: service_started
-    tor:
-      condition: service_healthy
   env_file:
     - publish.env
 
@@ -25,13 +23,6 @@ x-discord-app-container: &discord-app-container
     - discord.env
 
 services:
-
-  tor:
-    <<: *app-container
-    command: --tor
-    healthcheck:
-      test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/9050"]
-      interval: 5s
 
   redis:
     image: docker.io/redis/redis-stack:latest
